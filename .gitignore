@@ -1,0 +1,43 @@
+# CMake build trees and generated metadata
+/build/
+/build-*/
+/cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+CTestTestfile.cmake
+Testing/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+
+# Compiled libraries, executables, and object files
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.pdb
+*.dSYM/
+
+# Test, coverage, and profiling output
+*.gcda
+*.gcno
+*.gcov
+*.profraw
+*.profdata
+coverage/
+
+# Local IDE and operating-system files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Local runtime logs and generated packages (source manifests remain tracked)
+*.log
+*.cvmodel

@@ -1,1 +1,0 @@
-/usr/bin/cc -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/cv_sdk_detect_example.dir/examples/detect_example.c.o -o cv_sdk_detect_example  -Wl,-rpath,/Users/hiehie/work/bifan/cv_lib/cv-alg-library/build libcv_sdk.0.1.0.dylib

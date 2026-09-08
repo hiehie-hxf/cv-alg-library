@@ -1,1 +1,0 @@
-/usr/bin/c++ -dynamiclib -Wl,-headerpad_max_install_names -current_version 0.1.0 -o libcv_sdk.0.1.0.dylib -install_name @rpath/libcv_sdk.0.dylib CMakeFiles/cv_sdk.dir/src/api/cv_sdk.cpp.o CMakeFiles/cv_sdk.dir/src/base/status.cpp.o CMakeFiles/cv_sdk.dir/src/base/logger.cpp.o CMakeFiles/cv_sdk.dir/src/infer/mock_backend.cpp.o CMakeFiles/cv_sdk.dir/src/algo/detector.cpp.o
