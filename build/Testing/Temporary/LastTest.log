@@ -1,0 +1,21 @@
+Start testing: Sep 08 18:33 CST
+----------------------------------------------------------
+1/1 Testing: cv_sdk_api_test
+1/1 Test: cv_sdk_api_test
+Command: "/Users/hiehie/work/bifan/cv_lib/cv-alg-library/build/cv_sdk_api_test"
+Directory: /Users/hiehie/work/bifan/cv_lib/cv-alg-library
+"cv_sdk_api_test" start time: Sep 08 18:33 CST
+Output:
+----------------------------------------------------------
+{"ts":"2026-09-08T18:33:41.789","level":"INFO","module":"test","message":"log callback smoke test","sdk_version":"0.1.0"}
+{"ts":"2026-09-08T18:33:41.790","level":"INFO","module":"algo.detector","message":"detector created","sdk_version":"0.1.0"}
+cv_sdk_api_test passed
+<end of output>
+Test time =   0.78 sec
+----------------------------------------------------------
+Test Passed.
+"cv_sdk_api_test" end time: Sep 08 18:33 CST
+"cv_sdk_api_test" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Sep 08 18:33 CST
