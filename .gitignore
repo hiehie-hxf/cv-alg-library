@@ -41,3 +41,10 @@ coverage/
 # Local runtime logs and generated packages (source manifests remain tracked)
 *.log
 *.cvmodel
+# Large model artifacts are kept out of normal source commits; publish via model registry/artifact storage.
+models/**/*.onnx
+models/**/*.engine
+models/**/*.rknn
+
+# Third-party prebuilt SDK binaries are restored by audited fetch scripts.
+third_party/onnxruntime/prebuilt/

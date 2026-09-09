@@ -1,0 +1,28 @@
+#pragma once
+
+#include "cv_sdk/cv_sdk.h"
+#include <string>
+
+namespace cvsdk {
+struct FireConfig {
+  float min_area_ratio = .0005F;
+  float fire_candidate_conf = .25F;
+  float smoke_candidate_conf = .10F;
+  uint32_t fire_window = 5, fire_min_hits = 3;
+  float fire_confirm_conf = .40F, critical_fire_conf = .75F;
+  uint32_t smoke_window = 10, smoke_min_hits = 3;
+  float smoke_confirm_conf = .22F;
+  bool fire_color_gate_enabled = true;
+  float fire_color_min_fraction = .08F;
+  bool smoke_static_gate_enabled = true;
+  float smoke_static_diff = 2.5F, smoke_static_ratio = 2.0F, smoke_bypass_conf = .80F;
+  float smoke_overexposed_max = .50F, smoke_halo_mean = 190.F, smoke_halo_core_frac = .04F,
+        smoke_halo_core_mean = 150.F;
+  uint32_t smoke_soft_active_min = 25;
+  bool demo_torch_enabled = false;
+  float demo_torch_min_area_ratio = .012F, demo_torch_min_aspect = 0.F;
+  float demo_torch_min_red_fraction = .18F, demo_torch_min_yellow_fraction = .12F,
+        demo_torch_confidence = .90F;
+};
+CVSDK_Status LoadFireConfig(const char* path, FireConfig* config);
+} // namespace cvsdk

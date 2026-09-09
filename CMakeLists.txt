@@ -3,17 +3,33 @@ project(cv_alg_library VERSION 0.1.0 LANGUAGES C CXX)
 
 option(CVSDK_BUILD_TESTS "Build SDK tests" ON)
 option(CVSDK_BUILD_EXAMPLES "Build SDK examples" ON)
-option(CVSDK_WITH_ONNXRUNTIME "Enable ONNX Runtime backend when available" OFF)
+option(CVSDK_WITH_ONNXRUNTIME "Enable ONNX Runtime backend when available" ON)
+option(CVSDK_WITH_OPENCV "Enable OpenCV image operators and fire/smoke gates" ON)
 
 add_library(cv_sdk SHARED
   src/api/cv_sdk.cpp
   src/base/status.cpp
   src/base/logger.cpp
+  src/base/json.cpp
   src/infer/mock_backend.cpp
+  src/infer/onnxruntime_backend.cpp
   src/algo/detector.cpp
+  src/algo/fire_smoke/fire_config.cpp
+  src/algo/fire_smoke/fire_filter.cpp
+  src/algo/fire_smoke/fire_color_gate.cpp
+  src/algo/fire_smoke/smoke_static_gate.cpp
+  src/algo/fire_smoke/demo_torch_gate.cpp
+  src/algo/fire_smoke/fire_smoke_processor.cpp
 )
 find_package(Threads REQUIRED)
 target_link_libraries(cv_sdk PRIVATE Threads::Threads)
+if(CVSDK_WITH_OPENCV)
+  find_package(OpenCV 4 REQUIRED COMPONENTS core imgproc videoio highgui imgcodecs)
+  target_link_libraries(cv_sdk PRIVATE opencv_core opencv_imgproc)
+  target_compile_definitions(cv_sdk PRIVATE CVSDK_WITH_OPENCV=1)
+else()
+  message(FATAL_ERROR "Fire/smoke algorithm requires OpenCV. Set OpenCV_DIR or install OpenCV 4.")
+endif()
 add_library(cv_sdk::cv_sdk ALIAS cv_sdk)
 
 target_compile_features(cv_sdk PRIVATE cxx_std_17)
@@ -31,12 +47,16 @@ set_target_properties(cv_sdk PROPERTIES
 )
 
 if(CVSDK_WITH_ONNXRUNTIME)
-  message(FATAL_ERROR "ONNX Runtime adapter is intentionally not bundled in the MVP. Add it as a backend package after selecting its target version.")
+  include(cmake/OnnxRuntime.cmake)
+  cvsdk_configure_onnxruntime(cv_sdk)
+  target_compile_definitions(cv_sdk PRIVATE CVSDK_WITH_ONNXRUNTIME=1)
 endif()
 
 if(CVSDK_BUILD_EXAMPLES)
-  add_executable(cv_sdk_detect_example examples/detect_example.c)
+  add_executable(cv_sdk_detect_example tests/sample/cpp/detect_example.c)
   target_link_libraries(cv_sdk_detect_example PRIVATE cv_sdk::cv_sdk)
+  add_executable(cv_sdk_fire_vision_example examples/fire_vision_example.cpp)
+  target_link_libraries(cv_sdk_fire_vision_example PRIVATE cv_sdk::cv_sdk ${OpenCV_LIBS})
 endif()
 
 if(CVSDK_BUILD_TESTS)
@@ -45,6 +65,20 @@ if(CVSDK_BUILD_TESTS)
   target_link_libraries(cv_sdk_api_test PRIVATE cv_sdk::cv_sdk)
   add_test(NAME cv_sdk_api_test COMMAND cv_sdk_api_test)
   set_tests_properties(cv_sdk_api_test PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  add_executable(cv_sdk_fire_filter_test tests/unit/fire_filter_test.cpp)
+  target_link_libraries(cv_sdk_fire_filter_test PRIVATE cv_sdk::cv_sdk)
+  add_test(NAME cv_sdk_fire_filter_test COMMAND cv_sdk_fire_filter_test)
+  set_tests_properties(cv_sdk_fire_filter_test PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  add_executable(cv_sdk_fire_regression_test tests/regression/fire_rules_regression.cpp)
+  target_link_libraries(cv_sdk_fire_regression_test PRIVATE cv_sdk::cv_sdk)
+  add_test(NAME cv_sdk_fire_regression_test COMMAND cv_sdk_fire_regression_test)
+  set_tests_properties(cv_sdk_fire_regression_test PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  add_executable(cv_sdk_fire_filter_stress tests/stress/fire_filter_stress.cpp)
+  target_link_libraries(cv_sdk_fire_filter_stress PRIVATE cv_sdk::cv_sdk)
+  add_executable(cv_sdk_fire_smoke_processor_test tests/unit/fire_smoke_processor_test.cpp)
+  target_link_libraries(cv_sdk_fire_smoke_processor_test PRIVATE cv_sdk::cv_sdk)
+  add_test(NAME cv_sdk_fire_smoke_processor_test COMMAND cv_sdk_fire_smoke_processor_test)
+  set_tests_properties(cv_sdk_fire_smoke_processor_test PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
 
 install(TARGETS cv_sdk EXPORT cv_sdkTargets)

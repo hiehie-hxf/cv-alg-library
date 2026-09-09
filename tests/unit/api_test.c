@@ -1,7 +1,7 @@
+#include "cv_sdk/cv_sdk.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "cv_sdk/cv_sdk.h"
 int main(void) {
   CVSDK_LogOptions log_options = {sizeof(log_options), CVSDK_LOG_INFO, NULL, 0, 0, 16, NULL, NULL};
   assert(CVSDK_ConfigureLogging(&log_options) == CVSDK_OK);
@@ -14,9 +14,13 @@ int main(void) {
   unsigned char pixels[32 * 32 * 3] = {0};
   CVSDK_Image image = {sizeof(image), pixels, 32, 32, 32 * 3, CVSDK_PIXEL_FORMAT_BGR8};
   CVSDK_DetectionList query = {sizeof(query), NULL, 0, 0};
-  assert(CVSDK_DetectorInfer(detector, &image, &query) == CVSDK_BUFFER_TOO_SMALL && query.count == 1);
-  CVSDK_Detection item[1]; CVSDK_DetectionList output = {sizeof(output), item, 1, 0};
-  assert(CVSDK_DetectorInfer(detector, &image, &output) == CVSDK_OK && output.count == 1 && item[0].score == .90f);
+  assert(CVSDK_DetectorInfer(detector, &image, &query) == CVSDK_BUFFER_TOO_SMALL &&
+         query.count == 1);
+  CVSDK_Detection item[1];
+  CVSDK_DetectionList output = {sizeof(output), item, 1, 0};
+  assert(CVSDK_DetectorInfer(detector, &image, &output) == CVSDK_OK && output.count == 1 &&
+         item[0].score == .90f);
   CVSDK_DetectorDestroy(detector);
-  puts("cv_sdk_api_test passed"); return 0;
+  puts("cv_sdk_api_test passed");
+  return 0;
 }

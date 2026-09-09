@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "model_package": "models/fire_smoke_1280",
+  "postprocess": {
+    "min_area_ratio": 0.0005,
+    "candidate_thresholds": {
+      "fire": 0.3,
+      "smoke": 0.30
+    }
+  },
+  "fire_rules": {
+    "color_gate": {
+      "enabled": true,
+      "min_fraction": 0.08
+    },
+    "temporal": {
+      "fire_window": 5,
+      "fire_min_hits": 3,
+      "fire_confirm_conf": 0.45,
+      "critical_fire_conf": 0.75,
+      "smoke_window": 10,
+      "smoke_min_hits": 3,
+      "smoke_confirm_conf": 0.4
+    }
+  },
+  "smoke_rules": {
+    "static_gate": {
+      "enabled": true,
+      "static_diff": 2.5,
+      "static_ratio": 2.0,
+      "bypass_conf": 0.80,
+      "overexposed_max": 0.50,
+      "halo_mean": 190.0,
+      "halo_core_frac": 0.04,
+      "halo_core_mean": 150.0,
+      "soft_active_min": 25
+    }
+  },
+  "demo_torch": {
+    "enabled": false,
+    "min_area_ratio": 0.012,
+    "min_aspect": 0.0,
+    "min_red_fraction": 0.18,
+    "min_yellow_fraction": 0.12,
+    "confidence": 0.90
+  }
+}

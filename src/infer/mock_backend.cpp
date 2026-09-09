@@ -1,6 +1,6 @@
 #include "infer/mock_backend.h"
-#include <filesystem>
 #include "base/status.h"
+#include <filesystem>
 
 namespace cvsdk {
 CVSDK_Status MockBackend::Load(const std::string& package_dir) {
@@ -13,9 +13,9 @@ CVSDK_Status MockBackend::Load(const std::string& package_dir) {
 CVSDK_Status MockBackend::Run(const CVSDK_Image& image, std::vector<Detection>* output) {
   output->clear();
   if (image.width >= 16 && image.height >= 16) {
-    output->push_back({image.width * .2F, image.height * .2F, image.width * .6F,
-                       image.height * .6F, .90F, 0});
+    output->push_back(
+        {image.width * .2F, image.height * .2F, image.width * .6F, image.height * .6F, .90F, 0});
   }
   return CVSDK_OK;
 }
-}
+} // namespace cvsdk
