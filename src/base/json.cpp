@@ -6,6 +6,8 @@
 #include <iterator>
 #include <sstream>
 
+// 部署端最小 JSON 解析器，仅覆盖配置所需的对象、数组、字符串、数字和布尔值。
+
 namespace cvsdk::json {
 namespace {
 class Parser {

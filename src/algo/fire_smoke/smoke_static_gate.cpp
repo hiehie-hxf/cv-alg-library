@@ -4,6 +4,8 @@
 #include <chrono>
 #include <cmath>
 #include <opencv2/imgproc.hpp>
+
+// 使用 160x90 降采样灰度图维护跨帧证据，控制实时场景中的差分开销。
 namespace cvsdk {
 namespace {
 constexpr int W = 160, H = 90, BLOCK = 10;

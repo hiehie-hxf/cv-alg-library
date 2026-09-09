@@ -1,8 +1,11 @@
 #include "algo/fire_smoke/fire_smoke_processor.h"
 #include "algo/fire_smoke/demo_torch_gate.h"
+
+// 处理顺序与原业务保持一致：颜色校验 -> 演示规则 -> 烟雾门控 -> 多帧告警。
 #include "base/status.h"
 
 namespace cvsdk {
+// 编排顺序与原 Python 业务保持一致：颜色校验 -> 演示规则 -> 烟雾门控 -> 多帧告警。
 CVSDK_Status FireSmokeProcessor::Process(const CVSDK_Image& image, const CVSDK_Detection* input,
                                          uint32_t count, std::vector<CVSDK_Detection>* filtered,
                                          CVSDK_FireAlertState* state) {

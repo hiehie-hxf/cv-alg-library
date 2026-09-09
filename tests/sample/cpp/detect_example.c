@@ -1,4 +1,5 @@
 #include "cv_sdk/cv_sdk.h"
+/* 面向业务方的最小 C ABI 调用示例；生产代码必须完整检查错误码。 */
 #include <stdio.h>
 #include <stdlib.h>
 int main(int argc, char** argv) {

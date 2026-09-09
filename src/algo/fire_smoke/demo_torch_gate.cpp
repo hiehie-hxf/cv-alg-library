@@ -1,6 +1,7 @@
 #include "algo/fire_smoke/demo_torch_gate.h"
 #include <opencv2/imgproc.hpp>
 namespace cvsdk {
+// 演示规则通过红/黄色连通区域生成候选框，仅在配置开启时运行。
 std::vector<CVSDK_Detection> DetectDemoTorch(const CVSDK_Image& image, const FireConfig& c) {
   std::vector<CVSDK_Detection> out;
   if (!c.demo_torch_enabled || !image.data || image.pixel_format == CVSDK_PIXEL_FORMAT_GRAY8)

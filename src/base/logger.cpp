@@ -16,6 +16,8 @@
 
 #include "base/status.h"
 
+// 日志写盘和回调在后台线程执行，实时推理线程只做等级判断与有界入队。
+
 namespace cvsdk {
 namespace {
 const char* LevelName(CVSDK_LogLevel level) {

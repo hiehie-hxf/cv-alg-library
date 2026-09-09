@@ -3,6 +3,7 @@
 #include <filesystem>
 
 namespace cvsdk {
+// Mock 后端只验证模型包发现、输入输出内存契约和上层流水线。
 CVSDK_Status MockBackend::Load(const std::string& package_dir) {
   if (!std::filesystem::is_regular_file(std::filesystem::path(package_dir) / "manifest.json")) {
     SetLastError("model package manifest.json was not found");

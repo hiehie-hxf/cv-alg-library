@@ -9,6 +9,8 @@
 #include <memory>
 #include <vector>
 
+// C ABI 是唯一公开边界；所有 C++ 异常在此转换为稳定错误码。
+
 struct CVSDK_Detector {
   cvsdk::Detector impl;
 };

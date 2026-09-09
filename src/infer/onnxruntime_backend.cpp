@@ -8,6 +8,9 @@
 #include <onnxruntime_cxx_api.h>
 #include <opencv2/imgproc.hpp>
 
+// 本文件仅负责图像张量预处理、ONNX Runtime 调用和 YOLOv8 输出解码；
+// 火焰颜色、烟雾时序等业务规则由 fire_smoke 任务层负责。
+
 namespace cvsdk {
 namespace {
 std::vector<int> Nms(const std::vector<cv::Rect2f>& boxes, const std::vector<float>& scores,
@@ -47,6 +50,7 @@ OnnxRuntimeBackend::OnnxRuntimeBackend() : impl_(std::make_unique<Impl>()) {
 }
 OnnxRuntimeBackend::~OnnxRuntimeBackend() = default;
 CVSDK_Status OnnxRuntimeBackend::Load(const std::string& package) {
+  // 模型包必须提供当前平台匹配的 ONNX artifact，避免误加载其他平台产物。
   try {
     const auto model = std::filesystem::path(package) / "artifacts/onnxruntime/model.onnx";
     if (!std::filesystem::is_regular_file(model)) {
@@ -71,6 +75,7 @@ CVSDK_Status OnnxRuntimeBackend::Load(const std::string& package) {
   }
 }
 CVSDK_Status OnnxRuntimeBackend::Run(const CVSDK_Image& image, std::vector<Detection>* output) {
+  // 采用固定输入尺寸和 letterbox，保持与训练/导出侧的预处理契约一致。
   try {
     if (!impl_->session || !output || !image.data) {
       SetLastError("ONNX backend is not initialized");

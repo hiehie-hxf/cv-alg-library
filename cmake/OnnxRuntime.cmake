@@ -47,3 +47,5 @@ function(cvsdk_configure_onnxruntime target)
   endif()
   message(STATUS "ONNX Runtime: platform=${platform}, version=${CVSDK_ONNXRUNTIME_VERSION}, root=${root}")
 endfunction()
+# ONNX Runtime 平台探测和依赖定位模块。
+# 只允许加载与当前系统/CPU 架构匹配的 SDK，避免误链接 macOS dylib 到 Linux/Jetson。

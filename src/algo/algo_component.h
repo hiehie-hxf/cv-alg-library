@@ -1,6 +1,6 @@
 #pragma once
 
-/* Domain component contracts. Task implementations must not expose backend SDK types. */
+/** CV 领域组件契约。具体任务实现不得向业务层暴露推理后端专有类型。 */
 namespace cvsdk {
 class Preprocessor {
 public:

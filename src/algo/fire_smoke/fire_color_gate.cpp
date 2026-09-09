@@ -5,6 +5,7 @@
 #include <opencv2/imgproc.hpp>
 
 namespace cvsdk {
+// 使用 OpenCV HSV 统计框内暖色高亮像素，过滤皮肤和暖灯等明火误报。
 float FireColorFraction(const CVSDK_Image& image, const CVSDK_Detection& box) {
   if (!image.data ||
       (image.pixel_format != CVSDK_PIXEL_FORMAT_BGR8 &&

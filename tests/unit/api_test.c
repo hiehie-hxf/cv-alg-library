@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+/* 验证稳定 C ABI、结果查询容量协议、日志配置和基本检测生命周期。 */
 int main(void) {
   CVSDK_LogOptions log_options = {sizeof(log_options), CVSDK_LOG_INFO, NULL, 0, 0, 16, NULL, NULL};
   assert(CVSDK_ConfigureLogging(&log_options) == CVSDK_OK);

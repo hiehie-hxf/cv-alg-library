@@ -1,4 +1,5 @@
 #include "cv_sdk/cv_sdk.h"
+// 单元测试验证 OpenCV 颜色门控：暖色火焰通过，黑色伪目标被过滤。
 #include <cassert>
 #include <iostream>
 #include <vector>

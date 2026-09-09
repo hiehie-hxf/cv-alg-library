@@ -1,4 +1,5 @@
 {
+  "_comment": "MVP mock 模型包，仅用于验证 SDK API 和测试流程。",
   "format_version": 1,
   "sdk_compatibility": ">=0.1,<1.0",
   "task": "detection",

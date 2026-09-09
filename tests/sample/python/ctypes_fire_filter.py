@@ -1,4 +1,4 @@
-"""Minimal Python binding example for the stable C ABI.
+"""稳定 C ABI 的 Python ctypes 调用示例。
 
 Usage: python3 ctypes_fire_filter.py /path/to/libcv_sdk.dylib ../../models/fire_smoke_1280/fire_rules.json
 """

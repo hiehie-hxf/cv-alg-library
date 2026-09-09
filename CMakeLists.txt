@@ -1,10 +1,11 @@
 cmake_minimum_required(VERSION 3.20)
+# 企业级 CV SDK 顶层构建入口：统一管理库、示例、测试和可选后端依赖。
 project(cv_alg_library VERSION 0.1.0 LANGUAGES C CXX)
 
-option(CVSDK_BUILD_TESTS "Build SDK tests" ON)
-option(CVSDK_BUILD_EXAMPLES "Build SDK examples" ON)
-option(CVSDK_WITH_ONNXRUNTIME "Enable ONNX Runtime backend when available" ON)
-option(CVSDK_WITH_OPENCV "Enable OpenCV image operators and fire/smoke gates" ON)
+option(CVSDK_BUILD_TESTS "构建 SDK 单元/回归测试" ON)
+option(CVSDK_BUILD_EXAMPLES "构建业务示例程序" ON)
+option(CVSDK_WITH_ONNXRUNTIME "启用 ONNX Runtime 推理后端" ON)
+option(CVSDK_WITH_OPENCV "启用 OpenCV 图像算子和火情门控" ON)
 
 add_library(cv_sdk SHARED
   src/api/cv_sdk.cpp

@@ -5,6 +5,7 @@
 #include <cmath>
 
 namespace cvsdk {
+// JSON 字段在此一次性转换为强类型配置，并执行范围及字段关系校验。
 namespace {
 bool ReadFloat(const json::Value& root, const char* path, float* target, std::string* error) {
   double value;

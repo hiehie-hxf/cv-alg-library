@@ -1,4 +1,5 @@
 {
+  "_comment": "现场可调的火焰/烟雾后处理参数；模型输入与类别契约由 manifest 管理。",
   "schema_version": 1,
   "model_package": "models/fire_smoke_1280",
   "postprocess": {

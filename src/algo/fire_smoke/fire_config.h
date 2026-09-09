@@ -4,6 +4,7 @@
 #include <string>
 
 namespace cvsdk {
+/** 火情算法运行参数。字段名称与 JSON schema 一一对应，加载后不再依赖字符串查询。 */
 struct FireConfig {
   float min_area_ratio = .0005F;
   float fire_candidate_conf = .25F;
@@ -24,5 +25,6 @@ struct FireConfig {
   float demo_torch_min_red_fraction = .18F, demo_torch_min_yellow_fraction = .12F,
         demo_torch_confidence = .90F;
 };
+/** 输入：JSON 文件路径；输出：填充强类型配置并返回校验状态。 */
 CVSDK_Status LoadFireConfig(const char* path, FireConfig* config);
 } // namespace cvsdk

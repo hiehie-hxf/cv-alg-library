@@ -1,6 +1,7 @@
 #include "base/status.h"
 
 namespace cvsdk {
+// 错误文本采用线程本地存储，避免并发请求互相覆盖最近一次错误。
 thread_local std::string g_last_error;
 void SetLastError(std::string message) {
   g_last_error = std::move(message);

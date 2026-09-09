@@ -1,4 +1,5 @@
 #include "cv_sdk/cv_sdk.h"
+// 长稳压测入口；建议配合 ASan/LSan、RSS 和句柄监控运行数小时。
 #include <cassert>
 #include <cstdlib>
 #include <iostream>

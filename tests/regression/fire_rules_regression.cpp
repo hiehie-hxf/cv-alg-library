@@ -1,4 +1,5 @@
 #include "cv_sdk/cv_sdk.h"
+// Golden regression：固定输入序列必须保持告警等级和原因稳定，防止规则意外漂移。
 #include <cassert>
 #include <cstring>
 #include <iostream>

@@ -1,4 +1,5 @@
 #include "cv_sdk/cv_sdk.h"
+// 单元测试验证 JSON 配置加载、火焰三帧确认和小目标过滤。
 #include <cassert>
 #include <cstring>
 #include <iostream>

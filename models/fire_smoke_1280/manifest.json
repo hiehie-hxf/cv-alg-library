@@ -1,4 +1,5 @@
 {
+  "_comment": "火焰/烟雾 YOLOv8 模型契约；类别顺序固定为 smoke=0、fire=1。",
   "format_version": 1,
   "task": "fire_smoke_detection",
   "model_version": "fire-smoke-yolov8n-best_1280_v2",

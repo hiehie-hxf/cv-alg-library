@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <cstdio>
 
+// 告警器只消费已完成图像门控的检测框；模型推理和业务规则因此可以独立回归测试。
+
 namespace cvsdk {
 namespace {
 void Push(std::deque<float>* values, uint32_t window, float value) {
@@ -30,6 +32,7 @@ CVSDK_Status FireFilter::Process(uint32_t width, uint32_t height, const CVSDK_De
     SetLastError("invalid fire filter input");
     return CVSDK_INVALID_ARGUMENT;
   }
+  // 每帧仅保留同类最高置信度，避免同一目标多个框重复计数。
   float frame_fire = 0.F, frame_smoke = 0.F;
   const float image_area = static_cast<float>(width) * height;
   for (uint32_t i = 0; i < count; ++i) {
