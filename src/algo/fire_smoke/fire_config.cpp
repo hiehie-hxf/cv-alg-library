@@ -100,17 +100,6 @@ CVSDK_Status LoadFireConfig(const char* path, FireConfig* config) {
     SetLastError("invalid smoke_rules.static_gate configuration");
     return CVSDK_INVALID_ARGUMENT;
   }
-  if (!json::Boolean(json::FindPath(root, "demo_torch.enabled"), &parsed.demo_torch_enabled) ||
-      !ReadFloat(root, "demo_torch.min_area_ratio", &parsed.demo_torch_min_area_ratio, &error) ||
-      !ReadFloat(root, "demo_torch.min_aspect", &parsed.demo_torch_min_aspect, &error) ||
-      !ReadFloat(root, "demo_torch.min_red_fraction", &parsed.demo_torch_min_red_fraction,
-                 &error) ||
-      !ReadFloat(root, "demo_torch.min_yellow_fraction", &parsed.demo_torch_min_yellow_fraction,
-                 &error) ||
-      !ReadFloat(root, "demo_torch.confidence", &parsed.demo_torch_confidence, &error)) {
-    SetLastError("invalid demo_torch configuration");
-    return CVSDK_INVALID_ARGUMENT;
-  }
   if (parsed.fire_min_hits > parsed.fire_window || parsed.smoke_min_hits > parsed.smoke_window ||
       parsed.critical_fire_conf < parsed.fire_confirm_conf) {
     SetLastError("invalid temporal rule relationship");

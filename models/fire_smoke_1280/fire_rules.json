@@ -36,13 +36,5 @@
       "halo_core_mean": 150.0,
       "soft_active_min": 50
     }
-  },
-  "demo_torch": {
-    "enabled": false,
-    "min_area_ratio": 0.012,
-    "min_aspect": 0.0,
-    "min_red_fraction": 0.18,
-    "min_yellow_fraction": 0.12,
-    "confidence": 0.90
   }
 }

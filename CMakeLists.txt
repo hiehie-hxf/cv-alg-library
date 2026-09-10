@@ -19,7 +19,6 @@ add_library(cv_sdk SHARED
   src/algo/fire_smoke/fire_filter.cpp
   src/algo/fire_smoke/fire_color_gate.cpp
   src/algo/fire_smoke/smoke_static_gate.cpp
-  src/algo/fire_smoke/demo_torch_gate.cpp
   src/algo/fire_smoke/fire_smoke_processor.cpp
 )
 find_package(Threads REQUIRED)

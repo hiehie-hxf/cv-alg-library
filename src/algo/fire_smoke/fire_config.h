@@ -20,10 +20,6 @@ struct FireConfig {
   float smoke_overexposed_max = .50F, smoke_halo_mean = 190.F, smoke_halo_core_frac = .04F,
         smoke_halo_core_mean = 150.F;
   uint32_t smoke_soft_active_min = 25;
-  bool demo_torch_enabled = false;
-  float demo_torch_min_area_ratio = .012F, demo_torch_min_aspect = 0.F;
-  float demo_torch_min_red_fraction = .18F, demo_torch_min_yellow_fraction = .12F,
-        demo_torch_confidence = .90F;
 };
 /** 输入：JSON 文件路径；输出：填充强类型配置并返回校验状态。 */
 CVSDK_Status LoadFireConfig(const char* path, FireConfig* config);
