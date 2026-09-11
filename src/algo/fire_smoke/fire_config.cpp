@@ -36,6 +36,18 @@ bool ReadNonNegative(const json::Value& root, const char* path, float* target, s
   *target = static_cast<float>(value);
   return true;
 }
+bool ReadOptionalFloat(const json::Value& root, const char* path, float* target,
+                       std::string* error) {
+  if (!json::FindPath(root, path))
+    return true;
+  return ReadFloat(root, path, target, error);
+}
+bool ReadOptionalCount(const json::Value& root, const char* path, uint32_t* target,
+                       std::string* error) {
+  if (!json::FindPath(root, path))
+    return true;
+  return ReadCount(root, path, target, error);
+}
 } // namespace
 CVSDK_Status LoadFireConfig(const char* path, FireConfig* config) {
   if (!path || !config) {
@@ -65,6 +77,14 @@ CVSDK_Status LoadFireConfig(const char* path, FireConfig* config) {
                  &error) ||
       !ReadFloat(root, "fire_rules.temporal.critical_fire_conf", &parsed.critical_fire_conf,
                  &error) ||
+      !ReadOptionalCount(root, "fire_rules.temporal.fire_strong_min_hits",
+                         &parsed.fire_strong_min_hits, &error) ||
+      !ReadOptionalCount(root, "fire_rules.temporal.critical_consecutive",
+                         &parsed.critical_fire_consecutive, &error) ||
+      !ReadOptionalFloat(root, "fire_rules.temporal.track_iou_threshold",
+                         &parsed.track_iou_threshold, &error) ||
+      !ReadOptionalCount(root, "fire_rules.temporal.track_max_missed",
+                         &parsed.track_max_missed, &error) ||
       !ReadCount(root, "fire_rules.temporal.smoke_window", &parsed.smoke_window, &error) ||
       !ReadCount(root, "fire_rules.temporal.smoke_min_hits", &parsed.smoke_min_hits, &error) ||
       !ReadFloat(root, "fire_rules.temporal.smoke_confirm_conf", &parsed.smoke_confirm_conf,
@@ -96,12 +116,19 @@ CVSDK_Status LoadFireConfig(const char* path, FireConfig* config) {
       !ReadNonNegative(root, "smoke_rules.static_gate.halo_core_mean", &parsed.smoke_halo_core_mean,
                        &error) ||
       !ReadCount(root, "smoke_rules.static_gate.soft_active_min", &parsed.smoke_soft_active_min,
-                 &error)) {
+                 &error) ||
+      !ReadOptionalFloat(root, "smoke_rules.static_gate.global_motion_max_ratio",
+                         &parsed.smoke_global_motion_max_ratio, &error)) {
     SetLastError("invalid smoke_rules.static_gate configuration");
     return CVSDK_INVALID_ARGUMENT;
   }
   if (parsed.fire_min_hits > parsed.fire_window || parsed.smoke_min_hits > parsed.smoke_window ||
-      parsed.critical_fire_conf < parsed.fire_confirm_conf) {
+      parsed.critical_fire_conf < parsed.fire_confirm_conf ||
+      parsed.fire_strong_min_hits > parsed.fire_window ||
+      parsed.critical_fire_consecutive > parsed.fire_window ||
+      parsed.track_iou_threshold <= 0.F || parsed.track_iou_threshold > 1.F ||
+      parsed.smoke_global_motion_max_ratio <= 0.F ||
+      parsed.smoke_global_motion_max_ratio > 1.F) {
     SetLastError("invalid temporal rule relationship");
     return CVSDK_INVALID_ARGUMENT;
   }

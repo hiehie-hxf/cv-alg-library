@@ -1,0 +1,130 @@
+openapi: 3.0.3
+info:
+  title: CV Fire Vision Service API
+  version: 1.0.0
+  description: RTSP 火焰/烟雾推理服务接口
+paths:
+  /health:
+    get:
+      summary: 健康检查
+      responses:
+        '200':
+          description: 服务正常
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, streams]
+                properties:
+                  status: {type: string, example: ok}
+                  streams: {type: integer, example: 1}
+  /v1/streams:
+    get:
+      summary: 查询全部视频流摘要
+      responses:
+        '200':
+          description: 视频流列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: {$ref: '#/components/schemas/StreamSummary'}
+    post:
+      summary: 创建一路 RTSP 推理流
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStreamRequest'
+      responses:
+        '201':
+          description: 创建成功
+        '400':
+          description: 参数或 SDK 初始化失败
+        '409':
+          description: 流 ID 已存在
+  /v1/streams/{id}:
+    delete:
+      summary: 停止并删除视频流
+      parameters:
+        - {$ref: '#/components/parameters/StreamId'}
+      responses:
+        '200': {description: 删除成功}
+        '404': {description: 流不存在}
+  /v1/streams/{id}/result:
+    get:
+      summary: 获取一路视频流的最新结果
+      parameters:
+        - {$ref: '#/components/parameters/StreamId'}
+      responses:
+        '200':
+          description: 最新检测框和告警状态
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StreamResult'
+        '404': {description: 流不存在}
+components:
+  parameters:
+    StreamId:
+      name: id
+      in: path
+      required: true
+      schema: {type: string, minLength: 1, example: camera-01}
+  schemas:
+    CreateStreamRequest:
+      type: object
+      required: [id, source]
+      properties:
+        id: {type: string, example: camera-01}
+        source: {type: string, description: RTSP URL、摄像头序号或视频文件路径, example: rtsp://user:password@host/live}
+        model_package: {type: string, description: 可选，默认使用服务启动参数}
+        config_path: {type: string, description: 可选，默认使用服务启动参数}
+        score_threshold: {type: number, minimum: 0, maximum: 1, default: 0.1, example: 0.35}
+    StreamSummary:
+      type: object
+      required: [id, status, sequence]
+      properties:
+        id: {type: string}
+        status: {type: string, enum: [created, starting, running, reconnecting, error, stopped]}
+        sequence: {type: integer, format: int64}
+    Detection:
+      type: object
+      required: [x, y, width, height, score, class_id]
+      properties:
+        x: {type: number}
+        y: {type: number}
+        width: {type: number}
+        height: {type: number}
+        score: {type: number}
+        class_id: {type: integer, description: 0=smoke, 1=fire}
+    Alert:
+      type: object
+      required: [level, max_fire_confidence, max_smoke_confidence, fire_hits, smoke_hits, reason]
+      properties:
+        level: {type: string, enum: [none, info, warning_smoke, warning_fire, critical]}
+        max_fire_confidence: {type: number}
+        max_smoke_confidence: {type: number}
+        fire_hits: {type: integer}
+        smoke_hits: {type: integer}
+        reason: {type: string}
+    StreamResult:
+      type: object
+      required: [id, status, sequence, captured_frames, processed_frames, inference_ms, alert, detections]
+      properties:
+        id: {type: string}
+        status: {type: string}
+        sequence: {type: integer, format: int64}
+        captured_frames: {type: integer, format: int64}
+        processed_frames: {type: integer, format: int64}
+        inference_ms: {type: number}
+        alert: {$ref: '#/components/schemas/Alert'}
+        detections:
+          type: array
+          items: {$ref: '#/components/schemas/Detection'}
+        last_error: {type: string}

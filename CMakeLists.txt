@@ -4,8 +4,13 @@ project(cv_alg_library VERSION 0.1.0 LANGUAGES C CXX)
 
 option(CVSDK_BUILD_TESTS "构建 SDK 单元/回归测试" ON)
 option(CVSDK_BUILD_EXAMPLES "构建业务示例程序" ON)
+option(CVSDK_BUILD_SERVICE "构建 RTSP 推理服务" OFF)
 option(CVSDK_WITH_ONNXRUNTIME "启用 ONNX Runtime 推理后端" ON)
 option(CVSDK_WITH_OPENCV "启用 OpenCV 图像算子和火情门控" ON)
+option(CVSDK_INSTALL_MODEL_ARTIFACTS "将 ONNX 模型二进制纳入安装/交付包" OFF)
+option(CVSDK_INSTALL_RUNTIME_DEPS "将已定位的 ONNX Runtime 动态库纳入安装包" OFF)
+
+include(GNUInstallDirs)
 
 add_library(cv_sdk SHARED
   src/api/cv_sdk.cpp
@@ -59,6 +64,15 @@ if(CVSDK_BUILD_EXAMPLES)
   target_link_libraries(cv_sdk_fire_vision_example PRIVATE cv_sdk::cv_sdk ${OpenCV_LIBS})
 endif()
 
+if(CVSDK_BUILD_SERVICE)
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(LIBEVENT REQUIRED IMPORTED_TARGET libevent)
+  add_executable(cv_fire_vision_service apps/cv_fire_vision_service/fire_vision_service.cpp)
+  target_compile_features(cv_fire_vision_service PRIVATE cxx_std_17)
+  target_link_libraries(cv_fire_vision_service PRIVATE cv_sdk::cv_sdk PkgConfig::LIBEVENT
+                                                         opencv_videoio opencv_imgcodecs)
+endif()
+
 if(CVSDK_BUILD_TESTS)
   enable_testing()
   add_executable(cv_sdk_api_test tests/unit/api_test.c)
@@ -81,5 +95,42 @@ if(CVSDK_BUILD_TESTS)
   set_tests_properties(cv_sdk_fire_smoke_processor_test PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
 
-install(TARGETS cv_sdk EXPORT cv_sdkTargets)
-install(FILES include/cv_sdk/cv_sdk.h DESTINATION include/cv_sdk)
+install(TARGETS cv_sdk EXPORT cv_sdkTargets
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES include/cv_sdk/cv_sdk.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cv_sdk)
+install(FILES README.md apps/cv_fire_vision_service/README.md apps/cv_fire_vision_service/openapi.yaml
+        DESTINATION share/doc/cv_alg_library)
+install(EXPORT cv_sdkTargets
+        FILE cv_sdkTargets.cmake
+        NAMESPACE cv_sdk::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/cv_alg_library)
+
+if(CVSDK_BUILD_SERVICE)
+  install(TARGETS cv_fire_vision_service
+          RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
+
+install(DIRECTORY models/fire_smoke_640/
+        DESTINATION share/cv_alg_library/models/fire_smoke_640
+        FILES_MATCHING
+        PATTERN "*.json"
+        PATTERN "*.md"
+        PATTERN "*.onnx" EXCLUDE
+        PATTERN ".DS_Store" EXCLUDE)
+
+if(CVSDK_INSTALL_MODEL_ARTIFACTS)
+  install(DIRECTORY models/fire_smoke_640/artifacts/
+          DESTINATION share/cv_alg_library/models/fire_smoke_640/artifacts
+          PATTERN ".DS_Store" EXCLUDE)
+endif()
+
+if(CVSDK_WITH_ONNXRUNTIME AND CVSDK_INSTALL_RUNTIME_DEPS)
+  install(DIRECTORY "${CVSDK_ONNXRUNTIME_ROOT_RESOLVED}/lib/"
+          DESTINATION ${CMAKE_INSTALL_LIBDIR}
+          FILES_MATCHING
+          REGEX ".*onnxruntime.*(dylib|so|dll)(\\..*)?$")
+endif()
+
+include(cmake/CPack.cmake)

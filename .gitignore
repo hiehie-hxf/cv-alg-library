@@ -41,6 +41,10 @@ coverage/
 # Local runtime logs and generated packages (source manifests remain tracked)
 *.log
 *.cvmodel
+*.tar.gz
+*.zip
+_CPack_Packages/
+dist/
 # Large model artifacts are kept out of normal source commits; publish via model registry/artifact storage.
 models/**/*.onnx
 models/**/*.engine

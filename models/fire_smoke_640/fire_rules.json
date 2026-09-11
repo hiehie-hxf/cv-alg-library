@@ -1,7 +1,7 @@
 {
   "_comment": "现场可调的火焰/烟雾后处理参数；模型输入与类别契约由 manifest 管理。",
   "schema_version": 1,
-  "model_package": "models/fire_smoke_1280",
+  "model_package": "models/fire_smoke_640",
   "postprocess": {
     "min_area_ratio": 0.0005,
     "candidate_thresholds": {
@@ -19,6 +19,10 @@
       "fire_min_hits": 3,
       "fire_confirm_conf": 0.45,
       "critical_fire_conf": 0.75,
+      "fire_strong_min_hits": 2,
+      "critical_consecutive": 2,
+      "track_iou_threshold": 0.30,
+      "track_max_missed": 1,
       "smoke_window": 10,
       "smoke_min_hits": 3,
       "smoke_confirm_conf": 0.4
@@ -34,7 +38,8 @@
       "halo_mean": 190.0,
       "halo_core_frac": 0.04,
       "halo_core_mean": 150.0,
-      "soft_active_min": 50
+      "soft_active_min": 50,
+      "global_motion_max_ratio": 0.35
     }
   }
 }

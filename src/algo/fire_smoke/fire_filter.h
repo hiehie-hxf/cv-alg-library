@@ -2,6 +2,7 @@
 
 #include "algo/fire_smoke/fire_config.h"
 #include <deque>
+#include <vector>
 
 namespace cvsdk {
 /**
@@ -18,7 +19,24 @@ public:
   void Reset();
 
 private:
+  struct Track {
+    CVSDK_Detection box{};
+    std::deque<float> scores;
+    uint32_t missed = 0;
+  };
+
+  static float IoU(const CVSDK_Detection& lhs, const CVSDK_Detection& rhs);
+  static void PushScore(Track* track, uint32_t window, float score);
+  void UpdateTracks(int32_t class_id, const std::vector<CVSDK_Detection>& detections,
+                    uint32_t window, float candidate_conf);
+  static uint32_t Hits(const Track& track);
+  static float Max(const Track& track);
+  static uint32_t StrongHits(const Track& track, float threshold);
+  static uint32_t ConsecutiveStrongHits(const Track& track, float threshold);
+  static bool Confirmed(const Track& track, uint32_t min_hits, float confirm_conf);
+  const Track* BestTrack(const std::vector<Track>& tracks) const;
+
   FireConfig config_;
-  std::deque<float> fire_, smoke_;
+  std::vector<Track> fire_tracks_, smoke_tracks_;
 };
 } // namespace cvsdk

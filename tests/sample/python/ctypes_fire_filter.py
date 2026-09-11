@@ -1,6 +1,6 @@
 """稳定 C ABI 的 Python ctypes 调用示例。
 
-Usage: python3 ctypes_fire_filter.py /path/to/libcv_sdk.dylib ../../models/fire_smoke_1280/fire_rules.json
+Usage: python3 ctypes_fire_filter.py /path/to/libcv_sdk.dylib ../../models/fire_smoke_640/fire_rules.json
 """
 import ctypes as ct
 import sys

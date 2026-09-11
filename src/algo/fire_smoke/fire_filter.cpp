@@ -3,27 +3,112 @@
 #include "base/status.h"
 #include <algorithm>
 #include <cstdio>
+#include <limits>
 
 // 告警器只消费已完成图像门控的检测框；模型推理和业务规则因此可以独立回归测试。
 
 namespace cvsdk {
-namespace {
-void Push(std::deque<float>* values, uint32_t window, float value) {
-  values->push_back(value);
-  while (values->size() > window)
-    values->pop_front();
+float FireFilter::IoU(const CVSDK_Detection& lhs, const CVSDK_Detection& rhs) {
+  const float left = std::max(lhs.x, rhs.x);
+  const float top = std::max(lhs.y, rhs.y);
+  const float right = std::min(lhs.x + lhs.width, rhs.x + rhs.width);
+  const float bottom = std::min(lhs.y + lhs.height, rhs.y + rhs.height);
+  const float intersection = std::max(0.F, right - left) * std::max(0.F, bottom - top);
+  const float union_area = lhs.width * lhs.height + rhs.width * rhs.height - intersection;
+  return union_area > 0.F ? intersection / union_area : 0.F;
 }
-float Max(const std::deque<float>& values) {
-  return values.empty() ? 0.F : *std::max_element(values.begin(), values.end());
+
+void FireFilter::PushScore(Track* track, uint32_t window, float score) {
+  track->scores.push_back(score);
+  while (track->scores.size() > window)
+    track->scores.pop_front();
 }
-uint32_t Hits(const std::deque<float>& values) {
+
+void FireFilter::UpdateTracks(int32_t class_id,
+                              const std::vector<CVSDK_Detection>& detections, uint32_t window,
+                              float candidate_conf) {
+  auto& tracks = class_id == 1 ? fire_tracks_ : smoke_tracks_;
+  std::vector<bool> matched(tracks.size(), false);
+
+  // Greedy association is sufficient here because each frame has already been NMS'ed.
+  for (const auto& detection : detections) {
+    size_t best = tracks.size();
+    float best_iou = config_.track_iou_threshold;
+    for (size_t i = 0; i < tracks.size(); ++i) {
+      if (matched[i])
+        continue;
+      const float iou = IoU(tracks[i].box, detection);
+      if (iou >= best_iou) {
+        best_iou = iou;
+        best = i;
+      }
+    }
+    if (best == tracks.size()) {
+      Track track;
+      track.box = detection;
+      PushScore(&track, window, detection.score >= candidate_conf ? detection.score : 0.F);
+      tracks.push_back(std::move(track));
+      matched.push_back(true);
+    } else {
+      Track& track = tracks[best];
+      track.box = detection;
+      track.missed = 0;
+      PushScore(&track, window, detection.score >= candidate_conf ? detection.score : 0.F);
+      matched[best] = true;
+    }
+  }
+
+  for (size_t i = 0; i < tracks.size(); ++i) {
+    if (matched[i])
+      continue;
+    ++tracks[i].missed;
+    PushScore(&tracks[i], window, 0.F);
+  }
+  tracks.erase(std::remove_if(tracks.begin(), tracks.end(),
+                              [this](const Track& track) {
+                                return track.missed > config_.track_max_missed;
+                              }),
+               tracks.end());
+}
+
+uint32_t FireFilter::Hits(const Track& track) {
   return static_cast<uint32_t>(
-      std::count_if(values.begin(), values.end(), [](float x) { return x > 0.F; }));
+      std::count_if(track.scores.begin(), track.scores.end(), [](float x) { return x > 0.F; }));
 }
-} // namespace
+
+float FireFilter::Max(const Track& track) {
+  return track.scores.empty() ? 0.F : *std::max_element(track.scores.begin(), track.scores.end());
+}
+
+uint32_t FireFilter::StrongHits(const Track& track, float threshold) {
+  return static_cast<uint32_t>(std::count_if(
+      track.scores.begin(), track.scores.end(), [threshold](float x) { return x >= threshold; }));
+}
+
+uint32_t FireFilter::ConsecutiveStrongHits(const Track& track, float threshold) {
+  uint32_t count = 0;
+  for (auto it = track.scores.rbegin(); it != track.scores.rend() && *it >= threshold; ++it)
+    ++count;
+  return count;
+}
+
+bool FireFilter::Confirmed(const Track& track, uint32_t min_hits, float confirm_conf) {
+  return Hits(track) >= min_hits && Max(track) >= confirm_conf;
+}
+
+const FireFilter::Track* FireFilter::BestTrack(const std::vector<Track>& tracks) const {
+  const Track* best = nullptr;
+  for (const auto& track : tracks) {
+    if (!best || Hits(track) > Hits(*best) ||
+        (Hits(track) == Hits(*best) && Max(track) > Max(*best)))
+      best = &track;
+  }
+  return best;
+}
+
 void FireFilter::Reset() {
-  fire_.clear();
-  smoke_.clear();
+  fire_tracks_.clear();
+  smoke_tracks_.clear();
 }
 CVSDK_Status FireFilter::Process(uint32_t width, uint32_t height, const CVSDK_Detection* detections,
                                  uint32_t count, CVSDK_FireAlertState* state) {
@@ -32,9 +117,8 @@ CVSDK_Status FireFilter::Process(uint32_t width, uint32_t height, const CVSDK_De
     SetLastError("invalid fire filter input");
     return CVSDK_INVALID_ARGUMENT;
   }
-  // 每帧仅保留同类最高置信度，避免同一目标多个框重复计数。
-  float frame_fire = 0.F, frame_smoke = 0.F;
   const float image_area = static_cast<float>(width) * height;
+  std::vector<CVSDK_Detection> fire, smoke;
   for (uint32_t i = 0; i < count; ++i) {
     const auto& d = detections[i];
     if (d.score < 0 || d.score > 1 || d.width < 0 || d.height < 0)
@@ -43,21 +127,27 @@ CVSDK_Status FireFilter::Process(uint32_t width, uint32_t height, const CVSDK_De
     if (area_ratio < config_.min_area_ratio)
       continue;
     if (d.class_id == 1)
-      frame_fire = std::max(frame_fire, d.score);
+      fire.push_back(d);
     else if (d.class_id == 0)
-      frame_smoke = std::max(frame_smoke, d.score);
+      smoke.push_back(d);
   }
-  Push(&fire_, config_.fire_window, frame_fire >= config_.fire_candidate_conf ? frame_fire : 0.F);
-  Push(&smoke_, config_.smoke_window,
-       frame_smoke >= config_.smoke_candidate_conf ? frame_smoke : 0.F);
-  const uint32_t fire_hits = Hits(fire_), smoke_hits = Hits(smoke_);
-  const float fire_max = Max(fire_), smoke_max = Max(smoke_);
+  UpdateTracks(1, fire, config_.fire_window, config_.fire_candidate_conf);
+  UpdateTracks(0, smoke, config_.smoke_window, config_.smoke_candidate_conf);
+
+  const Track* best_fire = BestTrack(fire_tracks_);
+  const Track* best_smoke = BestTrack(smoke_tracks_);
+  const uint32_t fire_hits = best_fire ? Hits(*best_fire) : 0;
+  const uint32_t smoke_hits = best_smoke ? Hits(*best_smoke) : 0;
+  const float fire_max = best_fire ? Max(*best_fire) : 0.F;
+  const float smoke_max = best_smoke ? Max(*best_smoke) : 0.F;
   const bool fire_confirmed =
-      fire_hits >= config_.fire_min_hits && fire_max >= config_.fire_confirm_conf;
+      best_fire && Confirmed(*best_fire, config_.fire_min_hits, config_.fire_confirm_conf) &&
+      StrongHits(*best_fire, config_.fire_confirm_conf) >= config_.fire_strong_min_hits;
   const bool smoke_confirmed =
-      smoke_hits >= config_.smoke_min_hits && smoke_max >= config_.smoke_confirm_conf;
+      best_smoke && Confirmed(*best_smoke, config_.smoke_min_hits, config_.smoke_confirm_conf);
   const bool critical =
-      fire_hits >= config_.fire_min_hits && fire_max >= config_.critical_fire_conf;
+      best_fire && ConsecutiveStrongHits(*best_fire, config_.critical_fire_conf) >=
+                       config_.critical_fire_consecutive;
   state->level = CVSDK_FIRE_ALERT_NONE;
   const char* reason = "no_detection";
   if (critical || (fire_confirmed && smoke_confirmed)) {

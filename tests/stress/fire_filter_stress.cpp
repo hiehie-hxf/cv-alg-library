@@ -7,7 +7,7 @@
 int main(int argc, char** argv) {
   const unsigned long iterations = argc > 1 ? std::strtoul(argv[1], nullptr, 10) : 1000000UL;
   CVSDK_FireFilter* filter = nullptr;
-  assert(CVSDK_FireFilterCreate("models/fire_smoke_1280/fire_rules.json", &filter) == CVSDK_OK);
+  assert(CVSDK_FireFilterCreate("models/fire_smoke_640/fire_rules.json", &filter) == CVSDK_OK);
   CVSDK_Detection detection{100, 100, 80, 80, .50F, 1};
   CVSDK_FireAlertState state{sizeof(state)};
   for (unsigned long i = 0; i < iterations; ++i) {

@@ -6,12 +6,12 @@
 
 int main() {
   CVSDK_FireFilter* filter = nullptr;
-  assert(CVSDK_FireFilterCreate("models/fire_smoke_1280/fire_rules.json", &filter) == CVSDK_OK);
+  assert(CVSDK_FireFilterCreate("models/fire_smoke_640/fire_rules.json", &filter) == CVSDK_OK);
   CVSDK_Detection smoke{20, 20, 120, 80, .50F, 0};
   CVSDK_Detection fire{100, 100, 100, 100, .80F, 1};
   CVSDK_FireAlertState state{sizeof(state)};
 
-  // Golden case: three sustained high-confidence fire frames -> critical.
+  // Golden case: sustained high-confidence fire frames -> critical.
   for (int i = 0; i < 3; ++i)
     assert(CVSDK_FireFilterProcess(filter, 1280, 720, &fire, 1, &state) == CVSDK_OK);
   assert(state.level == CVSDK_FIRE_ALERT_CRITICAL);

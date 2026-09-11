@@ -29,6 +29,10 @@ function(cvsdk_configure_onnxruntime target)
     set(root "${PROJECT_SOURCE_DIR}/third_party/onnxruntime/prebuilt/${platform}/${CVSDK_ONNXRUNTIME_VERSION}")
   endif()
 
+  # 供安装/打包阶段复用已经校验过的平台化运行时根目录。
+  set(CVSDK_ONNXRUNTIME_ROOT_RESOLVED "${root}" CACHE INTERNAL
+      "Resolved ONNX Runtime root used by cv_sdk")
+
   if(NOT EXISTS "${root}/include/onnxruntime_cxx_api.h")
     message(FATAL_ERROR
       "ONNX Runtime SDK not found for ${platform} ${CVSDK_ONNXRUNTIME_VERSION}.\n"

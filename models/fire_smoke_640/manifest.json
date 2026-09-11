@@ -2,15 +2,15 @@
   "_comment": "火焰/烟雾 YOLOv8 模型契约；类别顺序固定为 smoke=0、fire=1。",
   "format_version": 1,
   "task": "fire_smoke_detection",
-  "model_version": "fire-smoke-yolov8n-best_1280_v2",
+  "model_version": "fire-smoke-yolov8n-best_640_v1",
   "input": {
     "layout": "NCHW",
     "pixel_format": "BGR8",
     "shape": [
       1,
       3,
-      1280,
-      1280
+      640,
+      640
     ],
     "letterbox_color": [
       114,
@@ -27,6 +27,6 @@
     "onnxruntime": "artifacts/onnxruntime/model.onnx"
   },
   "sha256": {
-    "artifacts/onnxruntime/model.onnx": "fd800722737790e05b3147f6d758467a77b03e731b84700fd4415e9abe5231c9"
+    "artifacts/onnxruntime/model.onnx": "696fda05ea3b584a949bd32eb189723fdf50096c7069d1118bd9d2196612abab"
   }
 }

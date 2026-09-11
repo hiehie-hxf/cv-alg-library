@@ -89,6 +89,22 @@ CVSDK_Status SmokeStaticGate::Filter(const CVSDK_Image& image,
     cv::compare(short_diff, std::max(4.0, base * 3.0), soft_map, cv::CMP_GT);
     soft_map.setTo(0, sharp);
   }
+  if (!short_diff.empty()) {
+    const double motion_threshold = std::max(6.0, base * 3.0);
+    const double motion_ratio =
+        static_cast<double>(cv::countNonZero(short_diff > motion_threshold)) /
+        static_cast<double>(short_diff.total());
+    if (motion_ratio > config_.smoke_global_motion_max_ratio) {
+      for (auto it = detections->begin(); it != detections->end();) {
+        if (it->class_id == 0)
+          it = detections->erase(it);
+        else
+          ++it;
+      }
+      stats_["global_motion"]++;
+      return CVSDK_OK;
+    }
+  }
   std::vector<CVSDK_Detection> kept;
   for (auto& d : *detections) {
     if (d.class_id != 0) {

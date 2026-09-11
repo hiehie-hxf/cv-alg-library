@@ -40,7 +40,7 @@ struct OnnxRuntimeBackend::Impl {
   Ort::SessionOptions options;
   std::unique_ptr<Ort::Session> session;
   std::string input_name, output_name;
-  int input_w = 1280, input_h = 1280;
+  int input_w = 640, input_h = 640;
   float iou = .45F, threshold = .10F;
 };
 OnnxRuntimeBackend::OnnxRuntimeBackend() : impl_(std::make_unique<Impl>()) {

@@ -5,7 +5,7 @@
 #include <vector>
 int main() {
   CVSDK_FireSmokeProcessor* processor = nullptr;
-  assert(CVSDK_FireSmokeProcessorCreate("models/fire_smoke_1280/fire_rules.json", &processor) ==
+  assert(CVSDK_FireSmokeProcessorCreate("models/fire_smoke_640/fire_rules.json", &processor) ==
          CVSDK_OK);
   std::vector<unsigned char> image(100 * 100 * 3, 0);
   // BGR orange rectangle: B=0 G=170 R=255. This should pass the fire color gate.
