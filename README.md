@@ -4,6 +4,14 @@
 
 当前实现刻意收敛：Linux/macOS、同步检测 API、模型包目录、可验证的 mock 后端。`InferBackend` 是 TensorRT、ONNX Runtime、RKNN 等后端的扩展点；真实硬件模型必须作为各自经过验证的 artifact 交付，不能假定同一模型可无差异切换。
 
+## 文档
+
+- [SDK 使用文档](docs/sdk_usage.md)：集成方式、API 参考、配置参考、告警语义与排错
+- [架构说明](docs/architecture.md)：分层结构、服务层边界与后端扩展点
+- [测试说明](tests/README.md)：测试分层与执行方式
+- [第三方依赖](third_party/README.md)：依赖隔离规范
+- [服务接口](apps/cv_fire_vision_service/README.md)：RTSP 服务的 HTTP/JSON 契约
+
 ## 构建与运行
 
 ```sh
