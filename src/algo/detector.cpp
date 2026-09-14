@@ -11,6 +11,9 @@ CVSDK_Status Detector::Init(const char* package_dir, const CVSDK_DetectorOptions
     backend_ = std::make_unique<MockBackend>();
   else if (std::strcmp(backend, "onnxruntime") == 0 || std::strcmp(backend, "onnx") == 0)
     backend_ = std::make_unique<OnnxRuntimeBackend>();
+  else if (std::strcmp(backend, "onnxruntime-cuda") == 0 ||
+           std::strcmp(backend, "onnx-cuda") == 0)
+    backend_ = std::make_unique<OnnxRuntimeBackend>(OnnxRuntimeBackend::Provider::Cuda);
   else {
     SetLastError("requested backend is not built");
     return CVSDK_UNSUPPORTED;

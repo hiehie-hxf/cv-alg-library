@@ -5,8 +5,8 @@ namespace cvsdk {
 /** ONNX Runtime CPU 推理后端；平台加速 provider 在后续硬件适配中配置。 */
 class OnnxRuntimeBackend final : public InferBackend {
 public:
-  /** 输出：构造默认 CPU 推理会话配置。 */
-  OnnxRuntimeBackend();
+  enum class Provider { Cpu, Cuda };
+  explicit OnnxRuntimeBackend(Provider provider = Provider::Cpu);
   /** 输出：释放 ONNX Runtime 会话和内部资源。 */
   ~OnnxRuntimeBackend() override;
   CVSDK_Status Load(const std::string& package_dir) override;

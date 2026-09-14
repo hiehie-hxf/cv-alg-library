@@ -42,14 +42,29 @@ struct OnnxRuntimeBackend::Impl {
   std::string input_name, output_name;
   int input_w = 640, input_h = 640;
   float iou = .45F, threshold = .10F;
+  OnnxRuntimeBackend::Provider provider = OnnxRuntimeBackend::Provider::Cpu;
 };
-OnnxRuntimeBackend::OnnxRuntimeBackend() : impl_(std::make_unique<Impl>()) {
+OnnxRuntimeBackend::OnnxRuntimeBackend(Provider provider) : impl_(std::make_unique<Impl>()) {
+  impl_->provider = provider;
   impl_->options.SetIntraOpNumThreads(4);
   impl_->options.AddConfigEntry("session.intra_op.allow_spinning", "0");
   impl_->options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+#ifdef CVSDK_WITH_ONNXRUNTIME_CUDA
+  if (provider == Provider::Cuda) {
+    OrtCUDAProviderOptions cuda_options{};
+    cuda_options.device_id = 0;
+    impl_->options.AppendExecutionProvider_CUDA(cuda_options);
+  }
+#endif
 }
 OnnxRuntimeBackend::~OnnxRuntimeBackend() = default;
 CVSDK_Status OnnxRuntimeBackend::Load(const std::string& package) {
+  if (impl_->provider == Provider::Cuda) {
+#ifndef CVSDK_WITH_ONNXRUNTIME_CUDA
+    SetLastError("ONNX Runtime CUDA provider is not enabled in this build");
+    return CVSDK_UNSUPPORTED;
+#endif
+  }
   // 模型包必须提供当前平台匹配的 ONNX artifact，避免误加载其他平台产物。
   try {
     const auto model = std::filesystem::path(package) / "artifacts/onnxruntime/model.onnx";
