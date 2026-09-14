@@ -27,50 +27,50 @@ typedef struct CVSDK_FireFilter CVSDK_FireFilter;
 typedef struct CVSDK_FireSmokeProcessor CVSDK_FireSmokeProcessor;
 
 typedef enum CVSDK_Status {
-  CVSDK_OK = 0,
-  CVSDK_INVALID_ARGUMENT = 1,
-  CVSDK_NOT_FOUND = 2,
-  CVSDK_UNSUPPORTED = 3,
-  CVSDK_OUT_OF_MEMORY = 4,
-  CVSDK_INTERNAL_ERROR = 5,
-  CVSDK_BUFFER_TOO_SMALL = 6
+  CVSDK_OK = 0,               /* 调用成功 */
+  CVSDK_INVALID_ARGUMENT = 1, /* 参数为空、结构体大小或字段值不合法 */
+  CVSDK_NOT_FOUND = 2,        /* 模型、配置等指定资源不存在 */
+  CVSDK_UNSUPPORTED = 3,      /* 请求的后端、格式或能力未被当前构建支持 */
+  CVSDK_OUT_OF_MEMORY = 4,    /* 内存分配失败 */
+  CVSDK_INTERNAL_ERROR = 5,   /* 推理引擎或 SDK 内部错误 */
+  CVSDK_BUFFER_TOO_SMALL = 6  /* 调用方提供的输出数组容量不足 */
 } CVSDK_Status;
 
 typedef enum CVSDK_PixelFormat {
-  CVSDK_PIXEL_FORMAT_BGR8 = 1,
-  CVSDK_PIXEL_FORMAT_RGB8 = 2,
-  CVSDK_PIXEL_FORMAT_GRAY8 = 3
+  CVSDK_PIXEL_FORMAT_BGR8 = 1,  /* 每像素 3 字节，B、G、R 顺序 */
+  CVSDK_PIXEL_FORMAT_RGB8 = 2,  /* 每像素 3 字节，R、G、B 顺序 */
+  CVSDK_PIXEL_FORMAT_GRAY8 = 3  /* 每像素 1 字节，灰度图 */
 } CVSDK_PixelFormat;
 
 typedef enum CVSDK_LogLevel {
-  CVSDK_LOG_TRACE = 0,
-  CVSDK_LOG_DEBUG = 1,
-  CVSDK_LOG_INFO = 2,
-  CVSDK_LOG_WARN = 3,
-  CVSDK_LOG_ERROR = 4,
-  CVSDK_LOG_FATAL = 5,
-  CVSDK_LOG_OFF = 6
+  CVSDK_LOG_TRACE = 0, /* 最细粒度的跟踪日志 */
+  CVSDK_LOG_DEBUG = 1, /* 调试日志 */
+  CVSDK_LOG_INFO = 2,  /* 常规运行信息 */
+  CVSDK_LOG_WARN = 3,  /* 可恢复的异常或风险提示 */
+  CVSDK_LOG_ERROR = 4, /* 调用或运行失败 */
+  CVSDK_LOG_FATAL = 5, /* 严重错误，服务通常无法继续正常工作 */
+  CVSDK_LOG_OFF = 6    /* 禁用全部日志输出 */
 } CVSDK_LogLevel;
 
 /* Invoked by the SDK logging worker thread. The JSON string is valid only during this call. */
 typedef void (*CVSDK_LogCallback)(CVSDK_LogLevel level, const char* message_json, void* user_data);
 
 typedef struct CVSDK_LogOptions {
-  uint32_t struct_size;
-  CVSDK_LogLevel min_level;   /* defaults to WARN when options is NULL */
-  const char* file_path;      /* NULL disables file output */
-  uint64_t max_file_bytes;    /* 0 disables rolling; recommended: 20 MiB */
-  uint32_t max_rotated_files; /* used only when max_file_bytes > 0 */
-  uint32_t queue_capacity;    /* 0 selects 4096 */
-  CVSDK_LogCallback callback; /* optional business-owned sink */
-  void* user_data;
+  uint32_t struct_size;       /* 结构体大小，必须设置为 sizeof(CVSDK_LogOptions) */
+  CVSDK_LogLevel min_level;   /* 最低日志等级；options=NULL 时默认为 WARN */
+  const char* file_path;      /* 日志文件路径；NULL 表示不写文件 */
+  uint64_t max_file_bytes;    /* 单个日志文件最大字节数；0 表示不滚动 */
+  uint32_t max_rotated_files; /* 保留的历史文件数量；仅 max_file_bytes>0 时生效 */
+  uint32_t queue_capacity;    /* 异步队列容量；0 表示使用默认值 4096 */
+  CVSDK_LogCallback callback; /* 业务日志回调；可选 */
+  void* user_data;            /* 原样传递给 callback 的用户数据 */
 } CVSDK_LogOptions;
 
 typedef struct CVSDK_LogStats {
-  uint32_t struct_size;
-  uint64_t accepted_count;
-  uint64_t dropped_count;
-  uint32_t queued_count;
+  uint32_t struct_size;      /* 结构体大小，必须设置为 sizeof(CVSDK_LogStats) */
+  uint64_t accepted_count;   /* 已接受的日志条数 */
+  uint64_t dropped_count;    /* 因队列满等原因丢弃的日志条数 */
+  uint32_t queued_count;     /* 当前队列中的日志条数 */
 } CVSDK_LogStats;
 
 /**
@@ -79,21 +79,21 @@ typedef struct CVSDK_LogStats {
  * stride_bytes 允许图像行尾存在对齐填充，必须不小于实际像素行宽。
  */
 typedef struct CVSDK_Image {
-  uint32_t struct_size;
-  const uint8_t* data;
-  uint32_t width;
-  uint32_t height;
-  uint32_t stride_bytes;
-  CVSDK_PixelFormat pixel_format;
+  uint32_t struct_size;          /* 结构体大小，必须设置为 sizeof(CVSDK_Image) */
+  const uint8_t* data;           /* 图像数据；由调用方分配并在同步调用期间保持有效 */
+  uint32_t width;                /* 图像宽度，单位为像素 */
+  uint32_t height;               /* 图像高度，单位为像素 */
+  uint32_t stride_bytes;         /* 每行字节数，允许包含行尾对齐填充 */
+  CVSDK_PixelFormat pixel_format; /* 像素格式：BGR8、RGB8 或 GRAY8 */
 } CVSDK_Image;
 
 typedef struct CVSDK_Detection {
-  float x;
-  float y;
-  float width;
-  float height;
-  float score;
-  int32_t class_id;
+  float x;         /* 检测框左上角 X 坐标，原图像素 */
+  float y;         /* 检测框左上角 Y 坐标，原图像素 */
+  float width;     /* 检测框宽度，原图像素 */
+  float height;    /* 检测框高度，原图像素 */
+  float score;     /* 置信度，范围通常为 [0, 1] */
+  int32_t class_id; /* 类别 ID；火情模型约定 0=smoke、1=fire */
 } CVSDK_Detection;
 
 /**
@@ -102,36 +102,36 @@ typedef struct CVSDK_Detection {
  * items 的内存始终由调用方分配和释放，SDK 不负责释放。
  */
 typedef struct CVSDK_DetectionList {
-  uint32_t struct_size;
-  CVSDK_Detection* items;
-  uint32_t capacity;
-  uint32_t count;
+  uint32_t struct_size;       /* 结构体大小，必须设置为 sizeof(CVSDK_DetectionList) */
+  CVSDK_Detection* items;     /* 调用方分配的检测结果数组；NULL 可用于查询容量 */
+  uint32_t capacity;          /* items 数组可容纳的元素数量 */
+  uint32_t count;             /* 输出：实际检测数量或所需容量 */
 } CVSDK_DetectionList;
 
 /** 检测器运行参数；模型输入尺寸、类别顺序等模型契约由 manifest 管理。 */
 typedef struct CVSDK_DetectorOptions {
-  uint32_t struct_size;
-  const char* backend;   /* MVP supports only "mock". NULL selects it. */
-  float score_threshold; /* [0, 1], default 0.25 */
-  uint32_t reserved[8];
+  uint32_t struct_size;       /* 结构体大小，必须设置为 sizeof(CVSDK_DetectorOptions) */
+  const char* backend;        /* 推理后端：mock、onnxruntime 或 onnxruntime-cuda；NULL 为 mock */
+  float score_threshold;      /* 结果置信度阈值，范围 [0, 1]，默认值为 0.25 */
+  uint32_t reserved[8];       /* 预留字段，必须初始化为 0 */
 } CVSDK_DetectorOptions;
 
 typedef enum CVSDK_FireAlertLevel {
-  CVSDK_FIRE_ALERT_NONE = 0,
-  CVSDK_FIRE_ALERT_INFO = 1,
-  CVSDK_FIRE_ALERT_WARNING_SMOKE = 2,
-  CVSDK_FIRE_ALERT_WARNING_FIRE = 3,
-  CVSDK_FIRE_ALERT_CRITICAL = 4
+  CVSDK_FIRE_ALERT_NONE = 0,          /* 未触发告警 */
+  CVSDK_FIRE_ALERT_INFO = 1,          /* 低风险提示 */
+  CVSDK_FIRE_ALERT_WARNING_SMOKE = 2, /* 烟雾告警 */
+  CVSDK_FIRE_ALERT_WARNING_FIRE = 3,  /* 火焰告警 */
+  CVSDK_FIRE_ALERT_CRITICAL = 4       /* 严重火情告警 */
 } CVSDK_FireAlertLevel;
 
 typedef struct CVSDK_FireAlertState {
-  uint32_t struct_size;
-  CVSDK_FireAlertLevel level;
-  float max_fire_confidence;
-  float max_smoke_confidence;
-  uint32_t fire_hits;
-  uint32_t smoke_hits;
-  char reason[96];
+  uint32_t struct_size;          /* 结构体大小，必须设置为 sizeof(CVSDK_FireAlertState) */
+  CVSDK_FireAlertLevel level;    /* 当前告警等级 */
+  float max_fire_confidence;     /* 当前窗口内最高火焰置信度 */
+  float max_smoke_confidence;    /* 当前窗口内最高烟雾置信度 */
+  uint32_t fire_hits;            /* 当前窗口内火焰命中次数 */
+  uint32_t smoke_hits;           /* 当前窗口内烟雾命中次数 */
+  char reason[96];               /* 可读告警原因，UTF-8，以 NUL 结尾 */
 } CVSDK_FireAlertState;
 
 /**
