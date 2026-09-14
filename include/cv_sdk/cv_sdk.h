@@ -25,6 +25,8 @@ typedef struct CVSDK_Detector CVSDK_Detector;
 typedef struct CVSDK_FireFilter CVSDK_FireFilter;
 /** 火焰/烟雾完整后处理句柄；内部包含颜色门控、烟雾门控和时序状态。 */
 typedef struct CVSDK_FireSmokeProcessor CVSDK_FireSmokeProcessor;
+/** 仪表读数器句柄：加载仪表检测和姿态模型后可同步读取单帧中的多个指针仪表。 */
+typedef struct CVSDK_GaugeReader CVSDK_GaugeReader;
 
 typedef enum CVSDK_Status {
   CVSDK_OK = 0,               /* 调用成功 */
@@ -134,6 +136,32 @@ typedef struct CVSDK_FireAlertState {
   char reason[96];               /* 可读告警原因，UTF-8，以 NUL 结尾 */
 } CVSDK_FireAlertState;
 
+typedef struct CVSDK_GaugeReaderOptions {
+  uint32_t struct_size;       /* 结构体大小，必须设置为 sizeof(CVSDK_GaugeReaderOptions) */
+  const char* backend;        /* 推理后端：onnxruntime 或 onnxruntime-cuda */
+  float detection_threshold;  /* 仪表检测框置信度阈值，范围 [0, 1] */
+  float keypoint_threshold;   /* 关键点与姿态目标置信度阈值，范围 [0, 1] */
+  float range_min;            /* 仪表量程最小值，必须小于 range_max */
+  float range_max;            /* 仪表量程最大值 */
+  const char* unit;           /* 量程单位，例如 MPa；NULL 表示空单位 */
+  uint32_t apply_calibration; /* 非 0 使用原算法的读数校准偏移 */
+  uint32_t clamp_to_range;    /* 非 0 将读数限制在 [range_min, range_max] */
+  uint32_t reserved[6];       /* 预留字段，必须初始化为 0 */
+} CVSDK_GaugeReaderOptions;
+
+typedef struct CVSDK_GaugeReading {
+  float x;                    /* 仪表检测框左上角 X 坐标，原图像素 */
+  float y;                    /* 仪表检测框左上角 Y 坐标，原图像素 */
+  float width;                /* 仪表检测框宽度，原图像素 */
+  float height;               /* 仪表检测框高度，原图像素 */
+  float detection_score;      /* 仪表检测框置信度 */
+  float pose_score;           /* 三类关键点中最低的姿态置信度；失败时为 0 */
+  float ratio;                /* 指针在起止刻度圆弧上的比例 */
+  float value;                /* 最终换算后的仪表读数 */
+  int32_t status;             /* 0=成功，1=缺少有效姿态关键点 */
+  char unit[16];              /* 创建参数中的单位，UTF-8，以 NUL 结尾 */
+} CVSDK_GaugeReading;
+
 /**
  * @brief 获取当前 C ABI 版本号
  * @return 当前 API 版本号
@@ -203,6 +231,17 @@ CVSDK_API CVSDK_Status CVSDK_DetectorInfer(CVSDK_Detector* detector, const CVSDK
  * @return 无返回值；调用后句柄不可继续使用
  */
 CVSDK_API void CVSDK_DetectorDestroy(CVSDK_Detector* detector);
+
+/** 创建仪表读数器。模型包须包含 artifacts/onnxruntime/detector.onnx 和 pose.onnx。 */
+CVSDK_API CVSDK_Status CVSDK_GaugeReaderCreate(const char* model_package,
+                                               const CVSDK_GaugeReaderOptions* options,
+                                               CVSDK_GaugeReader** out_reader);
+/** 同步读取一帧中的指针仪表；items=NULL 时查询所需输出容量。 */
+CVSDK_API CVSDK_Status CVSDK_GaugeReaderInfer(CVSDK_GaugeReader* reader, const CVSDK_Image* image,
+                                              CVSDK_GaugeReading* items, uint32_t capacity,
+                                              uint32_t* out_count);
+/** 销毁仪表读数器。 */
+CVSDK_API void CVSDK_GaugeReaderDestroy(CVSDK_GaugeReader* reader);
 
 /**
  * @brief 创建火焰/烟雾时序过滤器

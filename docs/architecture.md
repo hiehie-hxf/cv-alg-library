@@ -1,34 +1,24 @@
-# MVP 架构
-
-`C API -> Detector task adapter -> InferBackend -> hardware adapter`
-
-当前 `mock` adapter 只用于验证 ABI、内存所有权和部署包接口。真实 ONNX Runtime/TensorRT/RKNN adapter 应分别实现 `Load` 与 `Run`，并在其 artifact manifest 中声明目标平台及版本兼容性。
-
-预处理和后处理应随 task adapter 与 artifact metadata 维护；调用方只传递原始图像，绝不接触 ONNX Runtime/TensorRT/RKNN 类型。
-
-## 服务层
-
-服务层与 SDK 分进程/分职责：
+# SDK 架构
 
 ```text
-平台层
-   │ HTTP/JSON
+公开 C ABI
+   │
    ▼
-cv_fire_vision_service
-   ├── 每路流一个 StreamSession
-   ├── OpenCV RTSP/摄像头取流与断线重连
-   ├── 最新结果缓存、健康检查、生命周期管理
-   └── C ABI 调用
-         ▼
-      libcv_sdk
-         ├── ONNX Runtime 推理
-         └── 火焰颜色/烟雾时空/多帧告警后处理
+Detector task adapter
+   ├── 结果阈值过滤
+   └── FireSmokeProcessor（可选后处理）
+   │
+   ▼
+InferBackend
+   ├── mock
+   └── onnxruntime（CPU / CUDA Execution Provider）
+   │
+   ▼
+模型包 artifacts/onnxruntime/model.onnx
 ```
 
-每个 `StreamSession` 独占检测器、火情处理器和工作线程，确保多路视频的时序窗口互不污染。
-服务默认只保留每路视频的最新结果，不在内存中堆积帧；当推理速度低于拉流速度时，取流线程应采用
-有界队列或最新帧策略。当前 MVP 使用单路线程和最新状态缓存，后续可将推理线程池、GPU 批处理、
-事件消息队列和历史存储作为独立模块接入。
+SDK 对外只暴露稳定的 C ABI。调用方传入同步生命周期内有效的原始图像，并获得检测框和火情告警状态；不会接触 ONNX Runtime、CUDA、OpenCV 或其他后端专有类型。
 
-对外 API 契约保存在 `apps/cv_fire_vision_service/openapi.yaml`，当前包括 `/health`、流创建/删除、流列表和最新结果查询。
-平台层不应直接链接 OpenCV、ONNX Runtime 或 SDK 内部头文件。
+`InferBackend` 是后端扩展点。当前 `mock` 后端用于 ABI、内存所有权和规则测试；ONNX Runtime 后端负责模型加载、letterbox 预处理、YOLOv8 输出解码和 NMS。后续 TensorRT、RKNN 等后端应分别实现 `Load` 和 `Run`，并在其模型制品中声明目标平台和运行时兼容性。
+
+火焰/烟雾任务后处理由 `FireSmokeProcessor` 组合完成：候选阈值过滤、火焰颜色门控、烟雾静态/光晕/软运动门控，以及按目标 IoU 关联的多帧告警。规则参数由模型包中的 `fire_rules.json` 提供。

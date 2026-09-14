@@ -7,6 +7,7 @@
 ## 文档
 
 - [SDK 使用文档](docs/sdk_usage.md)：集成方式、API 参考、配置参考、告警语义与排错
+- [仪表读数接口](docs/gauge_reader_usage.md)：模拟指针仪表检测、关键点姿态与读数换算
 - [架构说明](docs/architecture.md)：分层结构、服务层边界与后端扩展点
 - [测试说明](tests/README.md)：测试分层与执行方式
 - [第三方依赖](third_party/README.md)：依赖隔离规范
@@ -64,6 +65,12 @@ ctest --test-dir build --output-on-failure
 macOS 首次运行本地摄像头时，需要在“系统设置 → 隐私与安全性 → 相机”中允许 Codex 或启动程序所用的 Terminal 访问相机。当前 macOS ARM64 CPU 实测 `fire01.jpg` 的 640 ONNX 单帧完整链路约为 1.2 秒；实时边缘部署应使用 Jetson CUDA/TensorRT。
 
 业务示例使用“最新帧”异步流水线：取流和显示不等待推理，推理线程只消费最新帧并丢弃积压旧帧；前台持续绘制最近一次检测结果。因此预览保持流畅，检测框的更新频率取决于模型推理速度。
+
+## 仪表读数
+
+`CVSDK_GaugeReader` 提供同步的两阶段仪表读数接口：先检测仪表 ROI，再通过姿态关键点计算指针在刻度圆弧上的比例并换算为读数。模型包位于 `models/gauge_reader_640/`，需要同时提供 `detector.onnx` 和 `pose.onnx`。调用方在 `CVSDK_GaugeReaderOptions` 中传入量程和单位；当前实现不包含 PaddleOCR 量程识别。
+
+完整的 C API 示例、CUDA 后端说明和模型目录要求见 [仪表读数接口](docs/gauge_reader_usage.md)。
 
 macOS 开发包默认使用 CPU Execution Provider。该 YOLO 模型包含 CoreML 不支持的大维度检测头，CoreML 只能部分执行且在受限运行环境可能无法创建编译缓存，因此不默认启用。生产实时部署建议使用 Jetson CUDA/TensorRT 后端。
 

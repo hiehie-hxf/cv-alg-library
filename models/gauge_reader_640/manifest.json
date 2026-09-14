@@ -1,0 +1,14 @@
+{
+  "format_version": 1,
+  "task": "analog_gauge_reading",
+  "model_version": "yibiao_v3_640_onnx",
+  "input": {"layout": "NCHW", "pixel_format": "BGR8", "shape": [1, 3, 640, 640]},
+  "artifacts": {
+    "detector": "artifacts/onnxruntime/detector.onnx",
+    "pose": "artifacts/onnxruntime/pose.onnx"
+  },
+  "pose_contract": {
+    "classes": {"0": "pointer", "1": "scale_start", "2": "scale_end"},
+    "keypoints": {"pointer": ["center", "tip"], "scale_start": ["unused", "point"], "scale_end": ["unused", "point"]}
+  }
+}

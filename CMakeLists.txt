@@ -21,6 +21,7 @@ add_library(cv_sdk SHARED
   src/infer/mock_backend.cpp
   src/infer/onnxruntime_backend.cpp
   src/algo/detector.cpp
+  src/algo/gauge/gauge_reader.cpp
   src/algo/fire_smoke/fire_config.cpp
   src/algo/fire_smoke/fire_filter.cpp
   src/algo/fire_smoke/fire_color_gate.cpp
@@ -97,6 +98,10 @@ if(CVSDK_BUILD_TESTS)
   target_link_libraries(cv_sdk_fire_smoke_processor_test PRIVATE cv_sdk::cv_sdk)
   add_test(NAME cv_sdk_fire_smoke_processor_test COMMAND cv_sdk_fire_smoke_processor_test)
   set_tests_properties(cv_sdk_fire_smoke_processor_test PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  add_executable(cv_sdk_gauge_reader_test tests/regression/gauge_reader_test.cpp)
+  target_link_libraries(cv_sdk_gauge_reader_test PRIVATE cv_sdk::cv_sdk opencv_imgcodecs)
+  add_test(NAME cv_sdk_gauge_reader_test COMMAND cv_sdk_gauge_reader_test)
+  set_tests_properties(cv_sdk_gauge_reader_test PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
 
 install(TARGETS cv_sdk EXPORT cv_sdkTargets
@@ -127,6 +132,20 @@ install(DIRECTORY models/fire_smoke_640/
 if(CVSDK_INSTALL_MODEL_ARTIFACTS)
   install(DIRECTORY models/fire_smoke_640/artifacts/
           DESTINATION share/cv_alg_library/models/fire_smoke_640/artifacts
+          PATTERN ".DS_Store" EXCLUDE)
+endif()
+
+install(DIRECTORY models/gauge_reader_640/
+        DESTINATION share/cv_alg_library/models/gauge_reader_640
+        FILES_MATCHING
+        PATTERN "*.json"
+        PATTERN "*.md"
+        PATTERN "*.onnx" EXCLUDE
+        PATTERN ".DS_Store" EXCLUDE)
+
+if(CVSDK_INSTALL_MODEL_ARTIFACTS)
+  install(DIRECTORY models/gauge_reader_640/artifacts/
+          DESTINATION share/cv_alg_library/models/gauge_reader_640/artifacts
           PATTERN ".DS_Store" EXCLUDE)
 endif()
 

@@ -10,7 +10,7 @@
 | 语言标准 | C++17 实现；公开头文件兼容 C99 与 C++ |
 | 支持平台 | Linux (x86_64 / aarch64)、macOS (arm64 / x86_64) |
 | 公开头文件 | `include/cv_sdk/cv_sdk.h`（**唯一**对外头文件） |
-| 相关文档 | [架构说明](architecture.md)、[测试说明](../tests/README.md)、[服务接口](../apps/cv_fire_vision_service/README.md)、[第三方依赖](../third_party/README.md) |
+| 相关文档 | [架构说明](architecture.md)、[仪表读数接口](gauge_reader_usage.md)、[测试说明](../tests/README.md)、[服务接口](../apps/cv_fire_vision_service/README.md)、[第三方依赖](../third_party/README.md) |
 
 ---
 
@@ -37,10 +37,11 @@
 
 ### 1.1 能力范围
 
-本 SDK 提供**同步**的目标检测与火焰/烟雾后处理能力，运行时不依赖 Python，对外只暴露稳定的 C ABI：
+本 SDK 提供**同步**的目标检测、火焰/烟雾后处理和模拟指针仪表读数能力，运行时不依赖 Python，对外只暴露稳定的 C ABI：
 
 - **目标检测**：加载模型包，对单帧图像执行推理，输出检测框。
 - **火情后处理**：对检测框执行颜色门控、烟雾时空门控和多帧时序确认，输出告警等级。
+- **仪表读数**：检测仪表 ROI，通过姿态关键点计算指针比例并换算为指定量程的读数。
 
 SDK 自身**不负责**图像采集、解码、显示、视频流管理、任务调度与结果存储。
 这些属于调用方（业务进程）的职责——参见[第 4.1 节](#41-分层与调用边界)。
@@ -56,15 +57,13 @@ SDK 自身**不负责**图像采集、解码、显示、视频流管理、任务
 |---|---|
 | 同步 API | 没有异步/回调式推理接口。`Infer` 在调用线程完成全部计算后返回。 |
 | 单帧输入 | 每次调用处理一张图像，不支持 batch 与多流复用。 |
-| CPU 推理 | 当前 ONNX Runtime 后端只配置 CPU Execution Provider，**没有 GPU 接口**。 |
-| 后端选择 | 仅支持 `mock` 与 `onnxruntime` 两个后端，通过字符串选择，非插件式注册。 |
+| 推理设备 | `onnxruntime` 使用 CPU；`onnxruntime-cuda`（及 `onnx-cuda` 别名）使用 CUDA Execution Provider，需构建时启用 `CVSDK_ONNXRUNTIME_CUDA=ON`。 |
+| 后端选择 | 检测器支持 `mock`、`onnxruntime`、`onnxruntime-cuda`；仪表读数器支持 `onnxruntime` 与 CUDA 别名。 |
 | 序列化 | 不提供跨进程/网络传输的序列化格式，结果为进程内结构体。 |
 | 模型包 | 只支持「目录 + manifest.json」形式，不支持加密、签名校验与在线下载。 |
 
-> **关于 GPU**：`CVSDK_DetectorOptions` 中没有设备或 provider 字段，
-> `OnnxRuntimeBackend` 也没有调用任何 `AppendExecutionProvider`。
-> 需要 GPU 时须改造后端实现并更换带 CUDA/TensorRT provider 的 ONNX Runtime 制品，
-> 详见[第 13 节](#13-版本与兼容性)。
+> **关于 GPU**：CUDA 后端需要带 CUDA Execution Provider 的 ONNX Runtime 制品，并在配置阶段打开
+> `CVSDK_ONNXRUNTIME_CUDA=ON`；未满足条件时创建句柄会失败。TensorRT、RKNN 等后端仍未实现。
 
 ---
 
@@ -314,11 +313,12 @@ libcv_sdk (动态库)
 
 ### 4.2 句柄生命周期
 
-SDK 提供四类不透明句柄：
+SDK 提供五类不透明句柄：
 
 | 句柄 | 创建 | 销毁 | 能否跨线程共享 |
 |---|---|---|---|
 | `CVSDK_Detector` | `CVSDK_DetectorCreate` | `CVSDK_DetectorDestroy` | 建议每路流独立 |
+| `CVSDK_GaugeReader` | `CVSDK_GaugeReaderCreate` | `CVSDK_GaugeReaderDestroy` | 建议每路任务独立 |
 | `CVSDK_FireFilter` | `CVSDK_FireFilterCreate` | `CVSDK_FireFilterDestroy` | **禁止**，含跨帧状态 |
 | `CVSDK_FireSmokeProcessor` | `CVSDK_FireSmokeProcessorCreate` | `CVSDK_FireSmokeProcessorDestroy` | **禁止**，含跨帧状态 |
 
@@ -814,7 +814,26 @@ void CVSDK_DetectorDestroy(CVSDK_Detector* detector);
 
 释放检测器。传 `NULL` 安全。
 
-### 7.4 火情后处理
+### 7.4 仪表读数器
+
+`CVSDK_GaugeReader` 使用 `models/gauge_reader_640/` 中的 `detector.onnx` 和 `pose.onnx`，对一帧图像返回一个或多个 `CVSDK_GaugeReading`。创建参数中的 `range_min`、`range_max` 和 `unit` 必须由调用方提供；`items = NULL` 可先查询输出数量。完整示例见[仪表读数接口](gauge_reader_usage.md)。
+
+```c
+CVSDK_GaugeReaderOptions options = {
+    sizeof(options), "onnxruntime", 0.25f, 0.25f,
+    0.0f, 100.0f, "MPa", 1, 0, {0}
+};
+CVSDK_GaugeReader* reader = NULL;
+CVSDK_Status status = CVSDK_GaugeReaderCreate("models/gauge_reader_640", &options, &reader);
+uint32_t count = 0;
+status = CVSDK_GaugeReaderInfer(reader, &image, NULL, 0, &count);
+/* 分配 count 个 CVSDK_GaugeReading 后再次调用 Infer。 */
+CVSDK_GaugeReaderDestroy(reader);
+```
+
+当输出容量不足时，`CVSDK_GaugeReaderInfer` 返回 `CVSDK_BUFFER_TOO_SMALL`，并通过 `out_count` 返回所需容量。姿态关键点不完整时，单条结果的 `status` 为 `1`；成功时为 `0`。
+
+### 7.5 火情后处理
 
 #### `CVSDK_FireSmokeProcessorCreate`
 
@@ -1312,7 +1331,7 @@ if (CVSDK_GetApiVersion() != 2) {
 
 | 限制 | 影响 | 当前应对 |
 |---|---|---|
-| 无 GPU 接口 | 只有 CPU 推理 | 更换带 provider 的 ONNX Runtime 制品并改造后端实现 |
+| TensorRT/RKNN 后端未实现 | 当前只有 mock、ONNX Runtime CPU/CUDA 后端 | 按需扩展 `InferBackend`，并提供匹配的模型制品 |
 | manifest 不参与校验 | `sha256`、类别顺序、输入尺寸契约不被强制 | 人工核对模型包与代码约定 |
 | 后端选择为硬编码字符串 | 新增后端需修改 `Detector::Init` | 按需扩展，暂无插件机制 |
 | 无 `cv_alg_libraryConfig.cmake` | `find_package` 不可用 | 显式 `include` targets 文件 |
