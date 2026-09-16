@@ -46,7 +46,7 @@ coverage/
 _CPack_Packages/
 dist/
 # Large model artifacts are kept out of normal source commits; publish via model registry/artifact storage.
-models/**/*.onnx
+# models/**/*.onnx
 models/**/*.engine
 models/**/*.rknn
 
