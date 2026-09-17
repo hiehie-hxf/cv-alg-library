@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "model": {
+    "input_size": [1280, 1280],
+    "num_classes": 1,
+    "class_names": ["liquid_stain"],
+    "normalize_scale": 0.0039215686
+  },
+  "postprocess": {
+    "candidate_conf": 0.25,
+    "iou_threshold": 0.5,
+    "mask_threshold": 0.5
+  },
+  "temporal": {
+    "window": 10,
+    "min_hits": 3,
+    "area_growth_ratio": 1.15,
+    "centroid_down_px": 5.0
+  }
+}
