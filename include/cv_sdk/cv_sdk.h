@@ -29,6 +29,8 @@ typedef struct CVSDK_FireSmokeProcessor CVSDK_FireSmokeProcessor;
 typedef struct CVSDK_GaugeReader CVSDK_GaugeReader;
 /** 漏液分割处理器句柄；内部含 ONNX 会话和跨帧告警状态。每路视频流应独立创建实例。 */
 typedef struct CVSDK_LeakProcessor CVSDK_LeakProcessor;
+/** 七段数码管仪表读数器句柄；不依赖推理模型。 */
+typedef struct CVSDK_DigitalGaugeReader CVSDK_DigitalGaugeReader;
 
 typedef enum CVSDK_Status {
   CVSDK_OK = 0,               /* 调用成功 */
@@ -41,9 +43,9 @@ typedef enum CVSDK_Status {
 } CVSDK_Status;
 
 typedef enum CVSDK_PixelFormat {
-  CVSDK_PIXEL_FORMAT_BGR8 = 1,  /* 每像素 3 字节，B、G、R 顺序 */
-  CVSDK_PIXEL_FORMAT_RGB8 = 2,  /* 每像素 3 字节，R、G、B 顺序 */
-  CVSDK_PIXEL_FORMAT_GRAY8 = 3  /* 每像素 1 字节，灰度图 */
+  CVSDK_PIXEL_FORMAT_BGR8 = 1, /* 每像素 3 字节，B、G、R 顺序 */
+  CVSDK_PIXEL_FORMAT_RGB8 = 2, /* 每像素 3 字节，R、G、B 顺序 */
+  CVSDK_PIXEL_FORMAT_GRAY8 = 3 /* 每像素 1 字节，灰度图 */
 } CVSDK_PixelFormat;
 
 typedef enum CVSDK_LogLevel {
@@ -71,10 +73,10 @@ typedef struct CVSDK_LogOptions {
 } CVSDK_LogOptions;
 
 typedef struct CVSDK_LogStats {
-  uint32_t struct_size;      /* 结构体大小，必须设置为 sizeof(CVSDK_LogStats) */
-  uint64_t accepted_count;   /* 已接受的日志条数 */
-  uint64_t dropped_count;    /* 因队列满等原因丢弃的日志条数 */
-  uint32_t queued_count;     /* 当前队列中的日志条数 */
+  uint32_t struct_size;    /* 结构体大小，必须设置为 sizeof(CVSDK_LogStats) */
+  uint64_t accepted_count; /* 已接受的日志条数 */
+  uint64_t dropped_count;  /* 因队列满等原因丢弃的日志条数 */
+  uint32_t queued_count;   /* 当前队列中的日志条数 */
 } CVSDK_LogStats;
 
 /**
@@ -83,20 +85,20 @@ typedef struct CVSDK_LogStats {
  * stride_bytes 允许图像行尾存在对齐填充，必须不小于实际像素行宽。
  */
 typedef struct CVSDK_Image {
-  uint32_t struct_size;          /* 结构体大小，必须设置为 sizeof(CVSDK_Image) */
-  const uint8_t* data;           /* 图像数据；由调用方分配并在同步调用期间保持有效 */
-  uint32_t width;                /* 图像宽度，单位为像素 */
-  uint32_t height;               /* 图像高度，单位为像素 */
-  uint32_t stride_bytes;         /* 每行字节数，允许包含行尾对齐填充 */
+  uint32_t struct_size;           /* 结构体大小，必须设置为 sizeof(CVSDK_Image) */
+  const uint8_t* data;            /* 图像数据；由调用方分配并在同步调用期间保持有效 */
+  uint32_t width;                 /* 图像宽度，单位为像素 */
+  uint32_t height;                /* 图像高度，单位为像素 */
+  uint32_t stride_bytes;          /* 每行字节数，允许包含行尾对齐填充 */
   CVSDK_PixelFormat pixel_format; /* 像素格式：BGR8、RGB8 或 GRAY8 */
 } CVSDK_Image;
 
 typedef struct CVSDK_Detection {
-  float x;         /* 检测框左上角 X 坐标，原图像素 */
-  float y;         /* 检测框左上角 Y 坐标，原图像素 */
-  float width;     /* 检测框宽度，原图像素 */
-  float height;    /* 检测框高度，原图像素 */
-  float score;     /* 置信度，范围通常为 [0, 1] */
+  float x;          /* 检测框左上角 X 坐标，原图像素 */
+  float y;          /* 检测框左上角 Y 坐标，原图像素 */
+  float width;      /* 检测框宽度，原图像素 */
+  float height;     /* 检测框高度，原图像素 */
+  float score;      /* 置信度，范围通常为 [0, 1] */
   int32_t class_id; /* 类别 ID；火情模型约定 0=smoke、1=fire */
 } CVSDK_Detection;
 
@@ -106,18 +108,18 @@ typedef struct CVSDK_Detection {
  * items 的内存始终由调用方分配和释放，SDK 不负责释放。
  */
 typedef struct CVSDK_DetectionList {
-  uint32_t struct_size;       /* 结构体大小，必须设置为 sizeof(CVSDK_DetectionList) */
-  CVSDK_Detection* items;     /* 调用方分配的检测结果数组；NULL 可用于查询容量 */
-  uint32_t capacity;          /* items 数组可容纳的元素数量 */
-  uint32_t count;             /* 输出：实际检测数量或所需容量 */
+  uint32_t struct_size;   /* 结构体大小，必须设置为 sizeof(CVSDK_DetectionList) */
+  CVSDK_Detection* items; /* 调用方分配的检测结果数组；NULL 可用于查询容量 */
+  uint32_t capacity;      /* items 数组可容纳的元素数量 */
+  uint32_t count;         /* 输出：实际检测数量或所需容量 */
 } CVSDK_DetectionList;
 
 /** 检测器运行参数；模型输入尺寸、类别顺序等模型契约由 manifest 管理。 */
 typedef struct CVSDK_DetectorOptions {
-  uint32_t struct_size;       /* 结构体大小，必须设置为 sizeof(CVSDK_DetectorOptions) */
-  const char* backend;        /* 推理后端：mock、onnxruntime 或 onnxruntime-cuda；NULL 为 mock */
-  float score_threshold;      /* 结果置信度阈值，范围 [0, 1]，默认值为 0.25 */
-  uint32_t reserved[8];       /* 预留字段，必须初始化为 0 */
+  uint32_t struct_size;  /* 结构体大小，必须设置为 sizeof(CVSDK_DetectorOptions) */
+  const char* backend;   /* 推理后端：mock、onnxruntime 或 onnxruntime-cuda；NULL 为 mock */
+  float score_threshold; /* 结果置信度阈值，范围 [0, 1]，默认值为 0.25 */
+  uint32_t reserved[8];  /* 预留字段，必须初始化为 0 */
 } CVSDK_DetectorOptions;
 
 typedef enum CVSDK_FireAlertLevel {
@@ -129,13 +131,13 @@ typedef enum CVSDK_FireAlertLevel {
 } CVSDK_FireAlertLevel;
 
 typedef struct CVSDK_FireAlertState {
-  uint32_t struct_size;          /* 结构体大小，必须设置为 sizeof(CVSDK_FireAlertState) */
-  CVSDK_FireAlertLevel level;    /* 当前告警等级 */
-  float max_fire_confidence;     /* 当前窗口内最高火焰置信度 */
-  float max_smoke_confidence;    /* 当前窗口内最高烟雾置信度 */
-  uint32_t fire_hits;            /* 当前窗口内火焰命中次数 */
-  uint32_t smoke_hits;           /* 当前窗口内烟雾命中次数 */
-  char reason[96];               /* 可读告警原因，UTF-8，以 NUL 结尾 */
+  uint32_t struct_size;       /* 结构体大小，必须设置为 sizeof(CVSDK_FireAlertState) */
+  CVSDK_FireAlertLevel level; /* 当前告警等级 */
+  float max_fire_confidence;  /* 当前窗口内最高火焰置信度 */
+  float max_smoke_confidence; /* 当前窗口内最高烟雾置信度 */
+  uint32_t fire_hits;         /* 当前窗口内火焰命中次数 */
+  uint32_t smoke_hits;        /* 当前窗口内烟雾命中次数 */
+  char reason[96];            /* 可读告警原因，UTF-8，以 NUL 结尾 */
 } CVSDK_FireAlertState;
 
 typedef struct CVSDK_GaugeReaderOptions {
@@ -152,17 +154,56 @@ typedef struct CVSDK_GaugeReaderOptions {
 } CVSDK_GaugeReaderOptions;
 
 typedef struct CVSDK_GaugeReading {
-  float x;                    /* 仪表检测框左上角 X 坐标，原图像素 */
-  float y;                    /* 仪表检测框左上角 Y 坐标，原图像素 */
-  float width;                /* 仪表检测框宽度，原图像素 */
-  float height;               /* 仪表检测框高度，原图像素 */
-  float detection_score;      /* 仪表检测框置信度 */
-  float pose_score;           /* 三类关键点中最低的姿态置信度；失败时为 0 */
-  float ratio;                /* 指针在起止刻度圆弧上的比例 */
-  float value;                /* 最终换算后的仪表读数 */
-  int32_t status;             /* 0=成功，1=缺少有效姿态关键点 */
-  char unit[16];              /* 创建参数中的单位，UTF-8，以 NUL 结尾 */
+  float x;               /* 仪表检测框左上角 X 坐标，原图像素 */
+  float y;               /* 仪表检测框左上角 Y 坐标，原图像素 */
+  float width;           /* 仪表检测框宽度，原图像素 */
+  float height;          /* 仪表检测框高度，原图像素 */
+  float detection_score; /* 仪表检测框置信度 */
+  float pose_score;      /* 三类关键点中最低的姿态置信度；失败时为 0 */
+  float ratio;           /* 指针在起止刻度圆弧上的比例 */
+  float value;           /* 最终换算后的仪表读数 */
+  int32_t status;        /* 0=成功，1=缺少有效姿态关键点 */
+  char unit[16];         /* 创建参数中的单位，UTF-8，以 NUL 结尾 */
 } CVSDK_GaugeReading;
+
+typedef enum CVSDK_DigitalGaugeRowRole {
+  CVSDK_DIGITAL_GAUGE_ROW_UNKNOWN = 0, /* 未知行角色 */
+  CVSDK_DIGITAL_GAUGE_ROW_PV = 1,      /* 过程值行 */
+  CVSDK_DIGITAL_GAUGE_ROW_SV = 2       /* 设定值行 */
+} CVSDK_DigitalGaugeRowRole;
+
+typedef enum CVSDK_DigitalGaugeFlags {
+  CVSDK_DIGITAL_GAUGE_FLAG_NONE = 0,                 /* 无告警 */
+  CVSDK_DIGITAL_GAUGE_FLAG_MISSING_DIGIT = 1u << 0,  /* 相对基准阈值存在漏检 */
+  CVSDK_DIGITAL_GAUGE_FLAG_MULTIPLE_DOTS = 1u << 1,  /* 检出多个小数点 */
+  CVSDK_DIGITAL_GAUGE_FLAG_LOW_CONFIDENCE = 1u << 2, /* 段位判据接近阈值 */
+  CVSDK_DIGITAL_GAUGE_FLAG_CODE_CORRECTED = 1u << 3, /* 使用汉明距离纠正段码 */
+  CVSDK_DIGITAL_GAUGE_FLAG_LOW_SPECIFICITY = 1u << 4 /* 段间暗缝特异性不足 */
+} CVSDK_DigitalGaugeFlags;
+
+typedef struct CVSDK_DigitalGaugeReaderOptions {
+  uint32_t struct_size;      /* 必须设置为 sizeof(CVSDK_DigitalGaugeReaderOptions) */
+  float minimum_confidence;  /* [0,1]；低于阈值的行仅在 return_ambiguous!=0 时返回 */
+  uint32_t return_ambiguous; /* 非 0 返回带歧义标志的读数 */
+  uint32_t reserved[8];      /* 预留字段，必须初始化为 0 */
+} CVSDK_DigitalGaugeReaderOptions;
+
+typedef struct CVSDK_DigitalGaugeReading {
+  uint32_t struct_size;                              /* 输出结构体版本大小 */
+  uint32_t panel_index;                              /* 面板序号，按原图 X 坐标从左向右 */
+  CVSDK_DigitalGaugeRowRole role;                    /* PV 或 SV */
+  float panel_x, panel_y, panel_width, panel_height; /* 面板框，原图像素 */
+  float row_x, row_y, row_width, row_height;         /* 行带框，原图像素 */
+  char text[16];                                     /* 解码文本，以 NUL 结尾 */
+  double value;                                      /* 数值结果；仅 has_value!=0 时有效 */
+  uint32_t has_value;                                /* 文本可完整转换为数值时为非 0 */
+  float confidence;                                  /* 行级置信度，范围 [0,1] */
+  float segment_specificity;                         /* 段与邻域暗缝的可分性，范围 [0,1] */
+  float shear;                                       /* 估计的字符斜切量 */
+  float pitch;                                       /* 相邻数字 cell 间距，像素 */
+  uint32_t digit_count;                              /* 识别出的数字位数 */
+  uint32_t flags;                                    /* CVSDK_DigitalGaugeFlags 按位组合 */
+} CVSDK_DigitalGaugeReading;
 
 /**
  * @brief 获取当前 C ABI 版本号
@@ -244,6 +285,18 @@ CVSDK_API CVSDK_Status CVSDK_GaugeReaderInfer(CVSDK_GaugeReader* reader, const C
                                               uint32_t* out_count);
 /** 销毁仪表读数器。 */
 CVSDK_API void CVSDK_GaugeReaderDestroy(CVSDK_GaugeReader* reader);
+
+/** 创建纯 OpenCV 七段数码管仪表读数器。 */
+CVSDK_API CVSDK_Status CVSDK_DigitalGaugeReaderCreate(
+    const char* package_dir, const CVSDK_DigitalGaugeReaderOptions* options,
+    CVSDK_DigitalGaugeReader** out_reader);
+/** 同步读取数字仪表的 PV/SV 行；items=NULL 时查询容量。 */
+CVSDK_API CVSDK_Status CVSDK_DigitalGaugeReaderInfer(CVSDK_DigitalGaugeReader* reader,
+                                                     const CVSDK_Image* image,
+                                                     CVSDK_DigitalGaugeReading* items,
+                                                     uint32_t capacity, uint32_t* out_count);
+/** 销毁数字仪表读数器。 */
+CVSDK_API void CVSDK_DigitalGaugeReaderDestroy(CVSDK_DigitalGaugeReader* reader);
 
 /**
  * @brief 创建火焰/烟雾时序过滤器

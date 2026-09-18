@@ -8,6 +8,7 @@
 
 - [SDK 使用文档](docs/sdk_usage.md)：集成方式、API 参考、配置参考、告警语义与排错
 - [仪表读数接口](docs/gauge_reader_usage.md)：模拟指针仪表检测、关键点姿态与读数换算
+- [数字仪表接口](docs/digital_gauge_usage.md)：红/绿七段数码管的纯 OpenCV 几何解码
 - [架构说明](docs/architecture.md)：分层结构、服务层边界与后端扩展点
 - [测试说明](tests/README.md)：测试分层与执行方式
 - [第三方依赖](third_party/README.md)：依赖隔离规范

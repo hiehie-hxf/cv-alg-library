@@ -1,5 +1,6 @@
 #include "cv_sdk/cv_sdk.h"
 #include "algo/detector.h"
+#include "algo/digital_gauge/digital_gauge_reader.h"
 #include "algo/fire_smoke/fire_config.h"
 #include "algo/fire_smoke/fire_filter.h"
 #include "algo/fire_smoke/fire_smoke_processor.h"
@@ -31,6 +32,9 @@ struct CVSDK_GaugeReader {
 struct CVSDK_LeakProcessor {
   cvsdk::LeakProcessor impl;
   explicit CVSDK_LeakProcessor(cvsdk::LeakConfig config) : impl(config) {}
+};
+struct CVSDK_DigitalGaugeReader {
+  cvsdk::DigitalGaugeReader impl;
 };
 namespace {
 bool HasSize(uint32_t actual, size_t required) {
@@ -191,6 +195,63 @@ CVSDK_Status CVSDK_GaugeReaderInfer(CVSDK_GaugeReader* reader, const CVSDK_Image
   }
 }
 void CVSDK_GaugeReaderDestroy(CVSDK_GaugeReader* reader) {
+  delete reader;
+}
+CVSDK_Status CVSDK_DigitalGaugeReaderCreate(const char* package_dir,
+                                            const CVSDK_DigitalGaugeReaderOptions* options,
+                                            CVSDK_DigitalGaugeReader** out_reader) {
+  try {
+    if (!package_dir || !options || !out_reader ||
+        !HasSize(options->struct_size, sizeof(CVSDK_DigitalGaugeReaderOptions))) {
+      cvsdk::SetLastError("invalid digital gauge reader create arguments");
+      return CVSDK_INVALID_ARGUMENT;
+    }
+    *out_reader = nullptr;
+    auto reader = std::make_unique<CVSDK_DigitalGaugeReader>();
+    CVSDK_Status status = reader->impl.Init(package_dir, options);
+    if (status != CVSDK_OK)
+      return status;
+    *out_reader = reader.release();
+    return CVSDK_OK;
+  } catch (const std::bad_alloc&) {
+    cvsdk::SetLastError("allocation failed");
+    return CVSDK_OUT_OF_MEMORY;
+  } catch (const std::exception& error) {
+    cvsdk::SetLastError(error.what());
+    return CVSDK_INTERNAL_ERROR;
+  }
+}
+CVSDK_Status CVSDK_DigitalGaugeReaderInfer(CVSDK_DigitalGaugeReader* reader,
+                                           const CVSDK_Image* image,
+                                           CVSDK_DigitalGaugeReading* items, uint32_t capacity,
+                                           uint32_t* out_count) {
+  try {
+    if (!reader || !out_count) {
+      cvsdk::SetLastError("invalid digital gauge reader infer arguments");
+      return CVSDK_INVALID_ARGUMENT;
+    }
+    CVSDK_Status status = ValidateImage(image);
+    if (status != CVSDK_OK)
+      return status;
+    std::vector<CVSDK_DigitalGaugeReading> result;
+    status = reader->impl.Infer(*image, &result);
+    if (status != CVSDK_OK)
+      return status;
+    *out_count = static_cast<uint32_t>(result.size());
+    if (!items)
+      return result.empty() ? CVSDK_OK : CVSDK_BUFFER_TOO_SMALL;
+    if (capacity < result.size()) {
+      cvsdk::SetLastError("digital gauge reading buffer capacity is insufficient");
+      return CVSDK_BUFFER_TOO_SMALL;
+    }
+    std::copy(result.begin(), result.end(), items);
+    return CVSDK_OK;
+  } catch (const std::exception& error) {
+    cvsdk::SetLastError(error.what());
+    return CVSDK_INTERNAL_ERROR;
+  }
+}
+void CVSDK_DigitalGaugeReaderDestroy(CVSDK_DigitalGaugeReader* reader) {
   delete reader;
 }
 CVSDK_Status CVSDK_FireFilterCreate(const char* path, CVSDK_FireFilter** out_filter) {

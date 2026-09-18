@@ -22,6 +22,8 @@ add_library(cv_sdk SHARED
   src/infer/onnxruntime_backend.cpp
   src/algo/detector.cpp
   src/algo/gauge/gauge_reader.cpp
+  src/algo/digital_gauge/digital_gauge_config.cpp
+  src/algo/digital_gauge/digital_gauge_reader.cpp
   src/algo/fire_smoke/fire_config.cpp
   src/algo/fire_smoke/fire_filter.cpp
   src/algo/fire_smoke/fire_color_gate.cpp
@@ -120,6 +122,10 @@ if(CVSDK_BUILD_TESTS)
   target_link_libraries(cv_sdk_gauge_reader_test PRIVATE cv_sdk::cv_sdk opencv_imgcodecs)
   add_test(NAME cv_sdk_gauge_reader_test COMMAND cv_sdk_gauge_reader_test)
   set_tests_properties(cv_sdk_gauge_reader_test PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  add_executable(cv_sdk_digital_gauge_reader_test tests/regression/digital_gauge_reader_test.cpp)
+  target_link_libraries(cv_sdk_digital_gauge_reader_test PRIVATE cv_sdk::cv_sdk opencv_imgcodecs)
+  add_test(NAME cv_sdk_digital_gauge_reader_test COMMAND cv_sdk_digital_gauge_reader_test)
+  set_tests_properties(cv_sdk_digital_gauge_reader_test PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
 
 install(TARGETS cv_sdk EXPORT cv_sdkTargets
@@ -127,7 +133,7 @@ install(TARGETS cv_sdk EXPORT cv_sdkTargets
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES include/cv_sdk/cv_sdk.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cv_sdk)
-install(FILES README.md apps/cv_fire_vision_service/README.md apps/cv_fire_vision_service/openapi.yaml
+install(FILES README.md docs/digital_gauge_usage.md apps/cv_fire_vision_service/README.md apps/cv_fire_vision_service/openapi.yaml
         DESTINATION share/doc/cv_alg_library)
 
 # 漏液服务文档单独放子目录，避免与火情服务的 README/openapi 同名互相覆盖。
@@ -158,6 +164,10 @@ if(CVSDK_INSTALL_MODEL_ARTIFACTS)
           DESTINATION share/cv_alg_library/models/fire_smoke_640/artifacts
           PATTERN ".DS_Store" EXCLUDE)
 endif()
+
+install(DIRECTORY models/digital_gauge_v1/
+        DESTINATION share/cv_alg_library/models/digital_gauge_v1
+        FILES_MATCHING PATTERN "*.json" PATTERN "*.md")
 
 install(DIRECTORY models/gauge_reader_640/
         DESTINATION share/cv_alg_library/models/gauge_reader_640
