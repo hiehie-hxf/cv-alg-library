@@ -5,6 +5,8 @@
 #include "algo/fire_smoke/fire_filter.h"
 #include "algo/fire_smoke/fire_smoke_processor.h"
 #include "algo/gauge/gauge_reader.h"
+#include "algo/leak/leak_config.h"
+#include "algo/leak/leak_processor.h"
 #include "base/logger.h"
 #include "base/status.h"
 #include <exception>
@@ -26,6 +28,10 @@ struct CVSDK_FireSmokeProcessor {
 };
 struct CVSDK_GaugeReader {
   cvsdk::GaugeReader impl;
+};
+struct CVSDK_LeakProcessor {
+  cvsdk::LeakProcessor impl;
+  explicit CVSDK_LeakProcessor(cvsdk::LeakConfig config) : impl(config) {}
 };
 struct CVSDK_DigitalGaugeReader {
   cvsdk::DigitalGaugeReader impl;
@@ -344,6 +350,114 @@ CVSDK_Status CVSDK_FireSmokeProcessorReset(CVSDK_FireSmokeProcessor* processor) 
   return CVSDK_OK;
 }
 void CVSDK_FireSmokeProcessorDestroy(CVSDK_FireSmokeProcessor* processor) {
+  delete processor;
+}
+CVSDK_Status CVSDK_LeakProcessorCreate(const char* model_package,
+                                       const CVSDK_LeakProcessorOptions* options,
+                                       CVSDK_LeakProcessor** out_processor) {
+  try {
+    if (!model_package || !out_processor ||
+        (options && !HasSize(options->struct_size, sizeof(CVSDK_LeakProcessorOptions)))) {
+      cvsdk::SetLastError("invalid leak processor create arguments");
+      return CVSDK_INVALID_ARGUMENT;
+    }
+    *out_processor = nullptr;
+    // 未显式指定时，规则文件默认与模型包同目录，避免调用方拼接路径出错。
+    const std::string rules = options && options->rules_json
+                                  ? options->rules_json
+                                  : std::string(model_package) + "/leak_rules.json";
+    cvsdk::LeakConfig config;
+    CVSDK_Status status = cvsdk::LoadLeakConfig(rules.c_str(), &config);
+    if (status != CVSDK_OK)
+      return status;
+    if (options) {
+      if (options->candidate_conf > 0.F)
+        config.candidate_conf = options->candidate_conf;
+      if (options->min_area_ratio > 0.F)
+        config.min_area_ratio = options->min_area_ratio;
+    }
+    auto processor = std::make_unique<CVSDK_LeakProcessor>(config);
+    status = processor->impl.Init(model_package, options ? options->backend : nullptr);
+    if (status != CVSDK_OK)
+      return status;
+    *out_processor = processor.release();
+    CVSDK_Log(CVSDK_LOG_INFO, "algo.leak_processor", "leak processor created");
+    return CVSDK_OK;
+  } catch (const std::bad_alloc&) {
+    cvsdk::SetLastError("allocation failed");
+    return CVSDK_OUT_OF_MEMORY;
+  } catch (const std::exception& error) {
+    cvsdk::SetLastError(error.what());
+    return CVSDK_INTERNAL_ERROR;
+  } catch (...) {
+    cvsdk::SetLastError("unknown internal exception");
+    return CVSDK_INTERNAL_ERROR;
+  }
+}
+CVSDK_Status CVSDK_LeakProcessorProcess(CVSDK_LeakProcessor* processor, const CVSDK_Image* image,
+                                        CVSDK_LeakItemList* out_items,
+                                        CVSDK_LeakAlertState* state) {
+  try {
+    if (!processor || !out_items || !state ||
+        !HasSize(out_items->struct_size, sizeof(CVSDK_LeakItemList)) ||
+        !HasSize(state->struct_size, sizeof(CVSDK_LeakAlertState))) {
+      cvsdk::SetLastError("invalid leak processor arguments");
+      return CVSDK_INVALID_ARGUMENT;
+    }
+    CVSDK_Status status = ValidateImage(image);
+    if (status != CVSDK_OK)
+      return status;
+    std::vector<cvsdk::LeakItem> result;
+    status = processor->impl.Process(*image, &result, state);
+    if (status != CVSDK_OK)
+      return status;
+    out_items->count = static_cast<uint32_t>(result.size());
+    if (!out_items->items)
+      return result.empty() ? CVSDK_OK : CVSDK_BUFFER_TOO_SMALL;
+    if (out_items->capacity < out_items->count) {
+      cvsdk::SetLastError("leak item buffer capacity is insufficient");
+      return CVSDK_BUFFER_TOO_SMALL;
+    }
+    for (uint32_t i = 0; i < out_items->count; ++i) {
+      const cvsdk::LeakItem& item = result[i];
+      out_items->items[i] = {item.x,          item.y,          item.width,     item.height,
+                             item.score,      item.centroid_x, item.centroid_y, item.area};
+    }
+    return CVSDK_OK;
+  } catch (const std::exception& error) {
+    cvsdk::SetLastError(error.what());
+    return CVSDK_INTERNAL_ERROR;
+  } catch (...) {
+    cvsdk::SetLastError("unknown internal exception");
+    return CVSDK_INTERNAL_ERROR;
+  }
+}
+CVSDK_Status CVSDK_LeakProcessorCopyMask(CVSDK_LeakProcessor* processor, uint32_t index,
+                                         uint8_t* buffer, uint32_t capacity, uint32_t* out_width,
+                                         uint32_t* out_height, uint32_t* out_stride) {
+  try {
+    if (!processor || !out_width || !out_height || !out_stride) {
+      cvsdk::SetLastError("invalid leak mask arguments");
+      return CVSDK_INVALID_ARGUMENT;
+    }
+    return processor->impl.CopyMask(index, buffer, capacity, out_width, out_height, out_stride);
+  } catch (const std::exception& error) {
+    cvsdk::SetLastError(error.what());
+    return CVSDK_INTERNAL_ERROR;
+  } catch (...) {
+    cvsdk::SetLastError("unknown internal exception");
+    return CVSDK_INTERNAL_ERROR;
+  }
+}
+CVSDK_Status CVSDK_LeakProcessorReset(CVSDK_LeakProcessor* processor) {
+  if (!processor) {
+    cvsdk::SetLastError("leak processor is required");
+    return CVSDK_INVALID_ARGUMENT;
+  }
+  processor->impl.Reset();
+  return CVSDK_OK;
+}
+void CVSDK_LeakProcessorDestroy(CVSDK_LeakProcessor* processor) {
   delete processor;
 }
 }

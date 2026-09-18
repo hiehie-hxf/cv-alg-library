@@ -1,0 +1,136 @@
+openapi: 3.0.3
+info:
+  title: CV Leak Vision Service API
+  version: 1.0.0
+  description: RTSP 漏液分割推理服务接口
+paths:
+  /health:
+    get:
+      summary: 健康检查
+      responses:
+        '200':
+          description: 服务正常
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, streams]
+                properties:
+                  status: {type: string, example: ok}
+                  streams: {type: integer, example: 1}
+  /v1/streams:
+    get:
+      summary: 查询全部视频流摘要
+      responses:
+        '200':
+          description: 视频流列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: {$ref: '#/components/schemas/StreamSummary'}
+    post:
+      summary: 创建一路 RTSP 漏液推理流
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStreamRequest'
+      responses:
+        '201':
+          description: 创建成功
+        '400':
+          description: 参数或 SDK 初始化失败
+        '409':
+          description: 流 ID 已存在
+  /v1/streams/{id}:
+    get:
+      summary: 获取一路视频流的状态与最近告警
+      parameters:
+        - {$ref: '#/components/parameters/StreamId'}
+      responses:
+        '200':
+          description: 最新漏液目标与告警状态
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StreamResult'
+        '404': {description: 流不存在}
+    delete:
+      summary: 停止并删除视频流
+      parameters:
+        - {$ref: '#/components/parameters/StreamId'}
+      responses:
+        '200': {description: 删除成功}
+        '404': {description: 流不存在}
+components:
+  parameters:
+    StreamId:
+      name: id
+      in: path
+      required: true
+      schema: {type: string, minLength: 1, example: camera-01}
+  schemas:
+    CreateStreamRequest:
+      type: object
+      required: [id, url]
+      properties:
+        id: {type: string, example: camera-01}
+        url: {type: string, description: RTSP URL、摄像头序号或视频文件路径, example: rtsp://user:password@host/live}
+        model_package: {type: string, description: 可选，默认使用服务启动参数}
+        rules_json: {type: string, description: 可选，默认使用服务启动参数}
+    StreamSummary:
+      type: object
+      required: [id, status, sequence]
+      properties:
+        id: {type: string}
+        status: {type: string, enum: [created, starting, running, reconnecting, error, stopped]}
+        sequence: {type: integer, format: int64}
+        leak_count: {type: integer}
+    LeakItem:
+      type: object
+      required: [x, y, width, height, score, centroid_x, centroid_y, area]
+      properties:
+        x: {type: number}
+        y: {type: number}
+        width: {type: number}
+        height: {type: number}
+        score: {type: number}
+        centroid_x: {type: number, description: 掩码质心 X，原图像素}
+        centroid_y: {type: number, description: 掩码质心 Y，原图像素}
+        area: {type: integer, description: 掩码像素面积}
+    Alert:
+      type: object
+      required: [level, leak_count, hits, window_filled, total_area, centroid_y, max_confidence, area_growing, centroid_down, reason]
+      properties:
+        level: {type: string, enum: [none, warning]}
+        leak_count: {type: integer}
+        hits: {type: integer, description: 当前窗口内的命中帧数}
+        window_filled: {type: integer, description: 非 0 表示滑动窗口已满，趋势判定已生效}
+        total_area: {type: integer}
+        centroid_y: {type: number}
+        max_confidence: {type: number}
+        area_growing: {type: integer}
+        centroid_down: {type: integer}
+        reason: {type: string}
+    StreamResult:
+      type: object
+      required: [id, url, status, sequence, captured_frames, processed_frames, inference_ms, alert, leaks]
+      properties:
+        id: {type: string}
+        url: {type: string}
+        status: {type: string}
+        sequence: {type: integer, format: int64}
+        captured_frames: {type: integer, format: int64}
+        processed_frames: {type: integer, format: int64}
+        inference_ms: {type: number}
+        alert: {$ref: '#/components/schemas/Alert'}
+        leaks:
+          type: array
+          items: {$ref: '#/components/schemas/LeakItem'}
+        last_error: {type: string}

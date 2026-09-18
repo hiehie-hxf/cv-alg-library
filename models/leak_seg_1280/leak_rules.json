@@ -1,0 +1,17 @@
+{
+  "_comment": "现场可调的漏液后处理参数；模型输入与类别契约由 manifest 管理。",
+  "schema_version": 1,
+  "model_package": "models/leak_seg_1280",
+  "postprocess": {
+    "min_area_ratio": 0.0005,
+    "candidate_conf": 0.25,
+    "iou_threshold": 0.5,
+    "mask_threshold": 0.5
+  },
+  "temporal": {
+    "window": 10,
+    "min_hits": 3,
+    "area_growth_ratio": 1.15,
+    "centroid_down_px": 5.0
+  }
+}
