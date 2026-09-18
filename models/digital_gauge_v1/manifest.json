@@ -1,0 +1,8 @@
+{
+  "format_version": 1,
+  "task": "seven_segment_display_reading",
+  "algorithm": "opencv_geometry",
+  "algorithm_version": "gauge_ocr_v1",
+  "config": "reader_config.json",
+  "output_roles": ["PV", "SV"]
+}

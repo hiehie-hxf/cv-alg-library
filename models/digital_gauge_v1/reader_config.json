@@ -1,0 +1,27 @@
+{
+  "led": {"value_min": 130, "saturation_min": 80},
+  "panel": {
+    "hue_min": 100,
+    "hue_max": 135,
+    "saturation_min": 110,
+    "value_min": 80,
+    "min_area_ratio": 0.0015894572,
+    "max_width_ratio": 0.1953125,
+    "max_y_ratio": 0.6184895833
+  },
+  "display": {
+    "base_threshold": 130,
+    "large_digit_threshold": 145,
+    "small_digit_threshold": 205,
+    "large_digit_height_split": 78,
+    "on_fraction": 0.55,
+    "minimum_specificity": 0.25
+  },
+  "geometry": {
+    "shear_min": -0.4,
+    "shear_max": 0.4,
+    "shear_step": 0.01,
+    "minimum_digits": 3,
+    "maximum_digits": 6
+  }
+}
