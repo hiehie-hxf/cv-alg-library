@@ -6,11 +6,11 @@
 | 项目 | 值 |
 |---|---|
 | SDK 版本 | 0.1.0 |
-| C ABI 版本 | 2（`CVSDK_API_VERSION`） |
+| C ABI 版本 | 3（`CVSDK_API_VERSION`） |
 | 语言标准 | C++17 实现；公开头文件兼容 C99 与 C++ |
 | 支持平台 | Linux (x86_64 / aarch64)、macOS (arm64 / x86_64) |
 | 公开头文件 | `include/cv_sdk/cv_sdk.h`（**唯一**对外头文件） |
-| 相关文档 | [架构说明](architecture.md)、[仪表读数接口](gauge_reader_usage.md)、[测试说明](../tests/README.md)、[服务接口](../apps/cv_fire_vision_service/README.md)、[第三方依赖](../third_party/README.md) |
+| 相关文档 | [架构说明](architecture.md)、[仪表读数接口](gauge_reader_usage.md)、[漏液检测接口](leak_detection_usage.md)、[测试说明](../tests/README.md)、[服务接口](../apps/cv_fire_vision_service/README.md)、[第三方依赖](../third_party/README.md) |
 
 ---
 
@@ -42,6 +42,7 @@
 - **目标检测**：加载模型包，对单帧图像执行推理，输出检测框。
 - **火情后处理**：对检测框执行颜色门控、烟雾时空门控和多帧时序确认，输出告警等级。
 - **仪表读数**：检测仪表 ROI，通过姿态关键点计算指针比例并换算为指定量程的读数。
+- **漏液分割**：加载 YOLOv8-Seg 模型包，在图像上还原实例掩码，输出漏液目标及按掩码面积/质心确认的多帧告警。
 
 SDK 自身**不负责**图像采集、解码、显示、视频流管理、任务调度与结果存储。
 这些属于调用方（业务进程）的职责——参见[第 4.1 节](#41-分层与调用边界)。
@@ -58,7 +59,7 @@ SDK 自身**不负责**图像采集、解码、显示、视频流管理、任务
 | 同步 API | 没有异步/回调式推理接口。`Infer` 在调用线程完成全部计算后返回。 |
 | 单帧输入 | 每次调用处理一张图像，不支持 batch 与多流复用。 |
 | 推理设备 | `onnxruntime` 使用 CPU；`onnxruntime-cuda`（及 `onnx-cuda` 别名）使用 CUDA Execution Provider，需构建时启用 `CVSDK_ONNXRUNTIME_CUDA=ON`。 |
-| 后端选择 | 检测器支持 `mock`、`onnxruntime`、`onnxruntime-cuda`；仪表读数器支持 `onnxruntime` 与 CUDA 别名。 |
+| 后端选择 | 检测器支持 `mock`、`onnxruntime`、`onnxruntime-cuda`；仪表读数器与漏液处理器支持 `onnxruntime` 与 CUDA 别名。 |
 | 序列化 | 不提供跨进程/网络传输的序列化格式，结果为进程内结构体。 |
 | 模型包 | 只支持「目录 + manifest.json」形式，不支持加密、签名校验与在线下载。 |
 
@@ -200,6 +201,9 @@ int main(int argc, char** argv) {
 ./build/cv_sdk_fire_vision_example models/fire_smoke_640 models/fire_smoke_640/fire_rules.json \
     rtsp://user:password@host/live --headless
 ./build/cv_sdk_fire_vision_example models/fire_smoke_640 models/fire_smoke_640/fire_rules.json test.jpg
+
+# 漏液分割链路（需要 models/leak_seg_1280/artifacts/onnxruntime/model.onnx）
+./build/cv_sdk_leak_example models/leak_seg_1280 tests/data/leak/leak01.jpg
 ```
 
 第三个参数同时支持摄像头序号（`0`）、文件路径、RTSP URL 和**单张图片**（自动识别，
@@ -226,9 +230,14 @@ dist/cv-alg-library/
 │   ├── libcv_sdk.so -> libcv_sdk.so.0    # 动态库（SOVERSION 0）
 │   └── cmake/cv_alg_library/cv_sdkTargets.cmake
 ├── bin/cv_fire_vision_service            # 可选，需 CVSDK_BUILD_SERVICE=ON
+├── bin/cv_leak_vision_service            # 可选，需 CVSDK_BUILD_SERVICE=ON
 └── share/
     ├── doc/cv_alg_library/               # README、服务文档、openapi.yaml
-    └── cv_alg_library/models/fire_smoke_640/   # manifest.json / model_card / fire_rules.json
+    ├── doc/cv_alg_library/cv_leak_vision_service/   # 漏液服务 README 与 openapi.yaml
+    └── cv_alg_library/models/
+        ├── fire_smoke_640/               # manifest.json / model_card / fire_rules.json
+        ├── gauge_reader_640/             # manifest.json / model_card
+        └── leak_seg_1280/                # manifest.json / model_card / leak_rules.json
 ```
 
 `.onnx` 模型二进制**默认不进入交付包**（保持模型与代码分离发布）。
@@ -691,10 +700,10 @@ typedef struct {
 uint32_t CVSDK_GetApiVersion(void);
 ```
 
-返回编译期 C ABI 版本（当前为 `2`）。建议在初始化时校验：
+返回编译期 C ABI 版本（当前为 `3`）。建议在初始化时校验：
 
 ```c
-if (CVSDK_GetApiVersion() != 2) { /* 头文件版本不匹配 */ }
+if (CVSDK_GetApiVersion() != 3) { /* 头文件版本不匹配 */ }
 ```
 
 #### `CVSDK_StatusMessage`
@@ -882,6 +891,22 @@ void CVSDK_FireSmokeProcessorDestroy(CVSDK_FireSmokeProcessor* processor);
 低阶时序告警器，加载同一份规则文件但不做图像分析，只消费检测框。
 签名与 `Processor` 版本对应，`Process` 接收 `(width, height, detections, count, out_state)`
 其中 `width` / `height` 是**原图**尺寸（用于面积比计算）。
+
+### 7.6 漏液分割
+
+`CVSDK_LeakProcessor` 自持 ONNX 会话，直接消费 `CVSDK_Image`，把 YOLOv8-Seg 的双输出解码为实例掩码，并基于掩码面积与质心做多帧告警。`CVSDK_LeakProcessorCreate` 的 `options` 可传 `NULL`，此时规则文件默认为 `<model_package>/leak_rules.json`。
+
+```c
+CVSDK_LeakProcessor* processor = NULL;
+CVSDK_LeakProcessorCreate("models/leak_seg_1280", NULL, &processor);
+CVSDK_LeakItem items[16];
+CVSDK_LeakItemList list = {sizeof(list), items, 16, 0};
+CVSDK_LeakAlertState state = {sizeof(state)};
+CVSDK_LeakProcessorProcess(processor, &image, &list, &state);
+CVSDK_LeakProcessorDestroy(processor);
+```
+
+`Process` **有状态**，每次调用推进一次时序窗口，因此必须固定预分配容量并每帧只调用一次，不能用 `items = NULL` 做容量查询。实例掩码通过 `CVSDK_LeakProcessorCopyMask` 单独取走（先传 `buffer = NULL` 查尺寸），掩码仅在当前帧有效。完整用法见[漏液检测接口](leak_detection_usage.md)。
 
 ---
 
@@ -1176,6 +1201,8 @@ README 记录的当前基线：**macOS ARM64 CPU、640 输入、`fire01.jpg` 单
 | `cv_sdk_detect_example` | `<model-package>` | 最小 C 调用示例（mock 后端） |
 | `cv_sdk_fire_vision_example` | `<model_package> <fire_rules.json> <source> [--headless]` | 完整火情链路，带预览 |
 | `cv_fire_vision_service` | `--listen --port --model --rules` | RTSP HTTP 服务（需 `CVSDK_BUILD_SERVICE=ON`） |
+| `cv_sdk_leak_example` | `<model_package> <image> [output.jpg]` | 漏液分割链路，输出带掩码叠加的可视化结果图 |
+| `cv_leak_vision_service` | `--listen --port --model --rules` | 漏液 RTSP HTTP 服务（需 `CVSDK_BUILD_SERVICE=ON`） |
 
 `cv_sdk_fire_vision_example` 的 `<source>` 支持：
 
@@ -1199,6 +1226,8 @@ inference frame=132 raw=3 filtered=1 level=warning_fire infer_ms=1187.4
 
 Python 侧通过 `ctypes` 直接调用 C ABI 的示例见
 [`tests/sample/python/ctypes_fire_filter.py`](../tests/sample/python/ctypes_fire_filter.py)。
+漏液侧的对应示例见
+[`tests/sample/python/ctypes_leak.py`](../tests/sample/python/ctypes_leak.py)。
 
 RTSP 服务的 HTTP 接口（`/health`、`/v1/streams` 等）见
 [服务文档](../apps/cv_fire_vision_service/README.md)与
@@ -1320,7 +1349,7 @@ ONNX artifact not found: models/fire_smoke_640/artifacts/onnxruntime/model.onnx
 接入方应在初始化时校验：
 
 ```c
-if (CVSDK_GetApiVersion() != 2) {
+if (CVSDK_GetApiVersion() != 3) {
   fprintf(stderr, "unexpected SDK ABI version %u\n", CVSDK_GetApiVersion());
 }
 ```
@@ -1390,6 +1419,13 @@ if (CVSDK_GetApiVersion() != 2) {
 | 6 | `CVSDK_LOG_OFF` | 作为 `CVSDK_Log` 的等级参数时会被忽略 |
 
 **`CVSDK_FireAlertLevel`** — 见[第 9.1 节](#91-等级定义)。
+
+**`CVSDK_LeakAlertLevel`**
+
+| 值 | 名称 | 说明 |
+|---|---|---|
+| 0 | `CVSDK_LEAK_ALERT_NONE` | 未触发告警，含时序预热期 |
+| 1 | `CVSDK_LEAK_ALERT_WARNING` | 窗口命中数达标，且面积增长或质心下移 |
 
 ### 附录 C 完整调用序列
 

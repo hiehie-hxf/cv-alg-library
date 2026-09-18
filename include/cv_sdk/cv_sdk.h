@@ -17,7 +17,7 @@
 extern "C" {
 #endif
 
-#define CVSDK_API_VERSION 2u
+#define CVSDK_API_VERSION 3u
 
 /** 检测器句柄：由 CVSDK_DetectorCreate 创建，使用结束后必须调用 Destroy 释放。 */
 typedef struct CVSDK_Detector CVSDK_Detector;
@@ -27,6 +27,8 @@ typedef struct CVSDK_FireFilter CVSDK_FireFilter;
 typedef struct CVSDK_FireSmokeProcessor CVSDK_FireSmokeProcessor;
 /** 仪表读数器句柄：加载仪表检测和姿态模型后可同步读取单帧中的多个指针仪表。 */
 typedef struct CVSDK_GaugeReader CVSDK_GaugeReader;
+/** 漏液分割处理器句柄；内部含 ONNX 会话和跨帧告警状态。每路视频流应独立创建实例。 */
+typedef struct CVSDK_LeakProcessor CVSDK_LeakProcessor;
 
 typedef enum CVSDK_Status {
   CVSDK_OK = 0,               /* 调用成功 */
@@ -312,6 +314,117 @@ CVSDK_API CVSDK_Status CVSDK_FireSmokeProcessorReset(CVSDK_FireSmokeProcessor* p
 /** 输入：处理器句柄；输出：释放全部处理资源。 */
 CVSDK_API void CVSDK_FireSmokeProcessorDestroy(CVSDK_FireSmokeProcessor* processor);
 
+
+typedef enum CVSDK_LeakAlertLevel {
+  CVSDK_LEAK_ALERT_NONE = 0,   /* 未触发告警 */
+  CVSDK_LEAK_ALERT_WARNING = 1 /* 窗口命中数达标，且面积增长或质心下移 */
+} CVSDK_LeakAlertLevel;
+
+/** 单个漏液目标；坐标与质心均为原图像素。掩码本身不跨 C ABI 传递，只暴露面积和质心。 */
+typedef struct CVSDK_LeakItem {
+  float x;          /* 检测框左上角 X 坐标，原图像素 */
+  float y;          /* 检测框左上角 Y 坐标，原图像素 */
+  float width;      /* 检测框宽度，原图像素 */
+  float height;     /* 检测框高度，原图像素 */
+  float score;      /* 置信度，范围通常为 [0, 1] */
+  float centroid_x; /* 掩码质心 X 坐标，原图像素 */
+  float centroid_y; /* 掩码质心 Y 坐标，原图像素 */
+  uint32_t area;    /* 掩码像素面积 */
+} CVSDK_LeakItem;
+
+/**
+ * 漏液目标数组描述。
+ * items=NULL 时用于查询所需容量；容量不足返回 CVSDK_BUFFER_TOO_SMALL，count 写入所需数量。
+ * items 的内存始终由调用方分配和释放，SDK 不负责释放。
+ */
+typedef struct CVSDK_LeakItemList {
+  uint32_t struct_size;  /* 结构体大小，必须设置为 sizeof(CVSDK_LeakItemList) */
+  CVSDK_LeakItem* items; /* 调用方分配的漏液结果数组；NULL 可用于查询容量 */
+  uint32_t capacity;     /* items 数组可容纳的元素数量 */
+  uint32_t count;        /* 输出：实际数量或所需容量 */
+} CVSDK_LeakItemList;
+
+typedef struct CVSDK_LeakAlertState {
+  uint32_t struct_size;       /* 结构体大小，必须设置为 sizeof(CVSDK_LeakAlertState) */
+  CVSDK_LeakAlertLevel level; /* 当前告警等级 */
+  uint32_t leak_count;        /* 本帧检出的漏液数量 */
+  uint32_t hits;              /* 当前窗口内的命中帧数 */
+  uint32_t window_filled;     /* 非 0 表示滑动窗口已满，趋势判定已生效 */
+  uint32_t total_area;        /* 本帧掩码总面积，像素 */
+  float centroid_y;           /* 本帧面积加权质心 Y，原图像素 */
+  float max_confidence;       /* 本帧最高置信度 */
+  uint32_t area_growing;      /* 非 0 表示面积增长超过阈值 */
+  uint32_t centroid_down;     /* 非 0 表示质心下移超过阈值 */
+  char reason[96];            /* 可读告警原因，UTF-8，以 NUL 结尾 */
+} CVSDK_LeakAlertState;
+
+/** 漏液处理器运行参数；模型输入尺寸与类别契约由 manifest 管理。 */
+typedef struct CVSDK_LeakProcessorOptions {
+  uint32_t struct_size;   /* 结构体大小，必须设置为 sizeof(CVSDK_LeakProcessorOptions) */
+  const char* backend;    /* 推理后端：onnxruntime 或 onnxruntime-cuda；NULL 为 onnxruntime */
+  const char* rules_json; /* 规则文件路径；NULL 表示 <model_package>/leak_rules.json */
+  float candidate_conf;   /* 大于 0 时覆盖规则中的候选阈值 */
+  float min_area_ratio;   /* 大于 0 时覆盖规则中的最小面积占比 */
+  uint32_t reserved[8];   /* 预留字段，必须初始化为 0 */
+} CVSDK_LeakProcessorOptions;
+
+/**
+ * @brief 创建并加载漏液分割处理器
+ * @param model_package 模型包目录，必须包含 manifest.json 和 artifacts/onnxruntime/model.onnx
+ * @param options 处理器运行参数，可传 NULL 使用默认值
+ * @param out_processor 输出新建的处理器句柄
+ * @return CVSDK_OK 表示创建成功，否则返回错误码
+ * @note 成功返回的句柄必须通过 CVSDK_LeakProcessorDestroy 释放。
+ */
+CVSDK_API CVSDK_Status CVSDK_LeakProcessorCreate(const char* model_package,
+                                                 const CVSDK_LeakProcessorOptions* options,
+                                                 CVSDK_LeakProcessor** out_processor);
+/**
+ * @brief 同步处理一帧图像
+ * @param processor 已创建的处理器句柄
+ * @param image 输入图像；数据由调用方持有，调用期间必须保持有效
+ * @param out_items 输出漏液数组；items=NULL 可查询所需容量
+ * @param out_state 输出当前告警状态，不可为 NULL
+ * @return CVSDK_OK 表示成功；输出容量不足返回 CVSDK_BUFFER_TOO_SMALL
+ * @note 该函数有状态，会推进跨帧滑动窗口；容量查询同样会推进窗口，请预分配足够容量。
+ */
+CVSDK_API CVSDK_Status CVSDK_LeakProcessorProcess(CVSDK_LeakProcessor* processor,
+                                                  const CVSDK_Image* image,
+                                                  CVSDK_LeakItemList* out_items,
+                                                  CVSDK_LeakAlertState* out_state);
+
+/**
+ * @brief 拷贝上一帧结果中某个目标的实例掩码
+ * @param processor 已创建的处理器句柄
+ * @param index 目标下标，对应上一次 CVSDK_LeakProcessorProcess 输出的第 index 项
+ * @param buffer 调用方分配的掩码缓冲；传 NULL 只查询尺寸
+ * @param capacity buffer 容量（字节），必须不小于 width*height
+ * @param out_width 输出掩码宽度，单位像素
+ * @param out_height 输出掩码高度，单位像素
+ * @param out_stride 输出掩码行跨度，单位字节，当前恒等于宽度
+ * @return CVSDK_OK 表示拷贝成功；buffer 为 NULL 或容量不足返回 CVSDK_BUFFER_TOO_SMALL；
+ *         index 越界返回 CVSDK_INVALID_ARGUMENT
+ * @note 掩码为 CV_8UC1 语义：0 表示背景、255 表示漏液，尺寸与原图一致。
+ *       掩码仅在当前帧有效，下一次 CVSDK_LeakProcessorProcess 或 Reset 后失效。
+ *       本函数不会推进时序滑动窗口，可安全用于结果可视化。
+ */
+CVSDK_API CVSDK_Status CVSDK_LeakProcessorCopyMask(CVSDK_LeakProcessor* processor, uint32_t index,
+                                                   uint8_t* buffer, uint32_t capacity,
+                                                   uint32_t* out_width, uint32_t* out_height,
+                                                   uint32_t* out_stride);
+/**
+ * @brief 重置漏液时序状态
+ * @param processor 待重置的处理器句柄
+ * @return CVSDK_OK 表示成功，否则返回错误码
+ * @note 只清空滑动窗口，不卸载已加载的模型会话。
+ */
+CVSDK_API CVSDK_Status CVSDK_LeakProcessorReset(CVSDK_LeakProcessor* processor);
+/**
+ * @brief 销毁漏液处理器
+ * @param processor 待销毁的处理器句柄，可传 NULL
+ * @return 无返回值
+ */
+CVSDK_API void CVSDK_LeakProcessorDestroy(CVSDK_LeakProcessor* processor);
 #ifdef __cplusplus
 }
 #endif

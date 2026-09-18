@@ -52,3 +52,6 @@ models/**/*.rknn
 
 # Third-party prebuilt SDK binaries are restored by audited fetch scripts.
 third_party/onnxruntime/prebuilt/
+
+# Regression visualizations are regenerated on every test run.
+tests/data/leak/*_result.jpg

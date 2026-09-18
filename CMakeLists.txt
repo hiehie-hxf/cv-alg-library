@@ -27,6 +27,10 @@ add_library(cv_sdk SHARED
   src/algo/fire_smoke/fire_color_gate.cpp
   src/algo/fire_smoke/smoke_static_gate.cpp
   src/algo/fire_smoke/fire_smoke_processor.cpp
+  src/algo/leak/leak_config.cpp
+  src/algo/leak/leak_segmenter.cpp
+  src/algo/leak/leak_filter.cpp
+  src/algo/leak/leak_processor.cpp
 )
 find_package(Threads REQUIRED)
 target_link_libraries(cv_sdk PRIVATE Threads::Threads)
@@ -65,6 +69,8 @@ endif()
 if(CVSDK_BUILD_EXAMPLES)
   add_executable(cv_sdk_detect_example tests/sample/cpp/detect_example.c)
   target_link_libraries(cv_sdk_detect_example PRIVATE cv_sdk::cv_sdk)
+  add_executable(cv_sdk_leak_example examples/leak_vision_example.cpp)
+  target_link_libraries(cv_sdk_leak_example PRIVATE cv_sdk::cv_sdk ${OpenCV_LIBS})
   add_executable(cv_sdk_fire_vision_example examples/fire_vision_example.cpp)
   target_link_libraries(cv_sdk_fire_vision_example PRIVATE cv_sdk::cv_sdk ${OpenCV_LIBS})
 endif()
@@ -76,6 +82,10 @@ if(CVSDK_BUILD_SERVICE)
   target_compile_features(cv_fire_vision_service PRIVATE cxx_std_17)
   target_link_libraries(cv_fire_vision_service PRIVATE cv_sdk::cv_sdk PkgConfig::LIBEVENT
                                                          opencv_videoio opencv_imgcodecs)
+  add_executable(cv_leak_vision_service apps/cv_leak_vision_service/leak_vision_service.cpp)
+  target_compile_features(cv_leak_vision_service PRIVATE cxx_std_17)
+  target_link_libraries(cv_leak_vision_service PRIVATE cv_sdk::cv_sdk PkgConfig::LIBEVENT
+                                                        opencv_videoio opencv_imgcodecs)
 endif()
 
 if(CVSDK_BUILD_TESTS)
@@ -98,6 +108,14 @@ if(CVSDK_BUILD_TESTS)
   target_link_libraries(cv_sdk_fire_smoke_processor_test PRIVATE cv_sdk::cv_sdk)
   add_test(NAME cv_sdk_fire_smoke_processor_test COMMAND cv_sdk_fire_smoke_processor_test)
   set_tests_properties(cv_sdk_fire_smoke_processor_test PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  add_executable(cv_sdk_leak_processor_test tests/unit/leak_processor_test.cpp)
+  target_link_libraries(cv_sdk_leak_processor_test PRIVATE cv_sdk::cv_sdk opencv_imgcodecs)
+  add_test(NAME cv_sdk_leak_processor_test COMMAND cv_sdk_leak_processor_test)
+  set_tests_properties(cv_sdk_leak_processor_test PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  add_executable(cv_sdk_leak_segmentation_test tests/regression/leak_segmentation_test.cpp)
+  target_link_libraries(cv_sdk_leak_segmentation_test PRIVATE cv_sdk::cv_sdk opencv_imgcodecs)
+  add_test(NAME cv_sdk_leak_segmentation_test COMMAND cv_sdk_leak_segmentation_test)
+  set_tests_properties(cv_sdk_leak_segmentation_test PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
   add_executable(cv_sdk_gauge_reader_test tests/regression/gauge_reader_test.cpp)
   target_link_libraries(cv_sdk_gauge_reader_test PRIVATE cv_sdk::cv_sdk opencv_imgcodecs)
   add_test(NAME cv_sdk_gauge_reader_test COMMAND cv_sdk_gauge_reader_test)
@@ -111,12 +129,18 @@ install(TARGETS cv_sdk EXPORT cv_sdkTargets
 install(FILES include/cv_sdk/cv_sdk.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cv_sdk)
 install(FILES README.md apps/cv_fire_vision_service/README.md apps/cv_fire_vision_service/openapi.yaml
         DESTINATION share/doc/cv_alg_library)
+
+# 漏液服务文档单独放子目录，避免与火情服务的 README/openapi 同名互相覆盖。
+install(FILES apps/cv_leak_vision_service/README.md apps/cv_leak_vision_service/openapi.yaml
+        DESTINATION share/doc/cv_alg_library/cv_leak_vision_service)
 install(EXPORT cv_sdkTargets
         FILE cv_sdkTargets.cmake
         NAMESPACE cv_sdk::
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/cv_alg_library)
 
 if(CVSDK_BUILD_SERVICE)
+  install(TARGETS cv_leak_vision_service
+          RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
   install(TARGETS cv_fire_vision_service
           RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
@@ -146,6 +170,20 @@ install(DIRECTORY models/gauge_reader_640/
 if(CVSDK_INSTALL_MODEL_ARTIFACTS)
   install(DIRECTORY models/gauge_reader_640/artifacts/
           DESTINATION share/cv_alg_library/models/gauge_reader_640/artifacts
+          PATTERN ".DS_Store" EXCLUDE)
+endif()
+
+install(DIRECTORY models/leak_seg_1280/
+        DESTINATION share/cv_alg_library/models/leak_seg_1280
+        FILES_MATCHING
+        PATTERN "*.json"
+        PATTERN "*.md"
+        PATTERN "*.onnx" EXCLUDE
+        PATTERN ".DS_Store" EXCLUDE)
+
+if(CVSDK_INSTALL_MODEL_ARTIFACTS)
+  install(DIRECTORY models/leak_seg_1280/artifacts/
+          DESTINATION share/cv_alg_library/models/leak_seg_1280/artifacts
           PATTERN ".DS_Store" EXCLUDE)
 endif()
 
